@@ -1,11 +1,33 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+vendor/
+coverage.out
+
+# IDE
+.vscode/settings.json
 .idea/
 
-.vscode/
+# macOS
+.DS_Store
 
-bin/
-
+# Environment
 .env
 
+# Logs
 *.log
 
-coverage.out
+# Temporary
+tmp/
+
+# Generated docs
+docs/swagger/
+
+# Build
+dist/

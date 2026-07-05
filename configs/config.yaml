@@ -1,0 +1,15 @@
+http:
+  address: "localhost:8080"
+
+database:
+  host: "localhost"
+  port: "5432"
+  user: "postgres"
+  password: "postgres"
+  name: "crypto"
+
+telegram:
+  token: "YOUR_BOT_TOKEN"
+
+scheduler:
+  interval: "5m"
