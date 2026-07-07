@@ -2,31 +2,43 @@ package main
 
 import (
 	"log"
+	"os"
 
-	"github.com/Tony1337/crypto-service/internal/config"
-	"github.com/Tony1337/crypto-service/internal/logger"
+	"github.com/Tonyl1337/crypto-service/internal/app"
+	"github.com/Tonyl1337/crypto-service/internal/config"
+	"github.com/Tonyl1337/crypto-service/internal/database"
+	"github.com/Tonyl1337/crypto-service/internal/logger"
 )
 
 func main() {
 
 	cfg, err := config.Load("configs/config.yaml")
-	if err != nil {
-		log.Fatal(err)
-	}
+if err != nil {
+	log.Fatal(err)
+}
 
-	log := logger.New()
+logger := logger.New()
 
-	log.Info("Application started")
+db, err := database.New(cfg.Database)
+if err != nil {
+	logger.Error("failed to connect database", "error", err)
+	os.Exit(1)
+}
 
-	log.Info("Configuration loaded")
+application := app.New(cfg, logger, db)
 
-	log.Info(
+application.Logger.Info("Database connected")
+application.Logger.Info("Application started")
+
+application.Logger.Info("Configuration loaded")
+
+application.Logger.Info(
 		"HTTP server", 
 		"address", 
 		cfg.HTTP.Address,
 	)
 
-	log.Info(
+application.Logger.Info(
 		"Database configuration",
 		"host", cfg.Database.Host,
 		"port", cfg.Database.Port,
