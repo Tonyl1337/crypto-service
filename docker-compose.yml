@@ -1,9 +1,9 @@
 version: "3.9"
 
 services:
+
   postgres:
     image: postgres:16
-
     container_name: crypto-postgres
 
     restart: unless-stopped
@@ -18,6 +18,15 @@ services:
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  migrate:
+    image: migrate/migrate
+
+    volumes:
+      - ./migrations:/migrations
+
+    depends_on:
+      - postgres
 
 volumes:
   postgres_data:
