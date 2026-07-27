@@ -7,18 +7,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClient_GetPrices(t *testing.T) {
+func TestClient_GetRates(t *testing.T) {
+
 	client := NewClient()
 
-	prices, err := client.GetPrices(context.Background())
+	rates, err := client.GetRates(context.Background())
 
 	require.NoError(t, err)
+	require.NotEmpty(t, rates)
 
-	require.NotEmpty(t, prices)
+	foundBTC := false
+	foundETH := false
 
-	_, ok := prices["bitcoin"]
-	require.True(t, ok)
+	for _, rate := range rates {
 
-	_, ok = prices["ethereum"]
-	require.True(t, ok)
+		if rate.Symbol == "BTC" {
+			foundBTC = true
+		}
+
+		if rate.Symbol == "ETH" {
+			foundETH = true
+		}
+	}
+
+	require.True(t, foundBTC)
+	require.True(t, foundETH)
 }
