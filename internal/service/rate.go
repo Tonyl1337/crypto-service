@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 
-	"github.com/Tonyl1337/crypto-service/internal/client/coingecko"
 	"github.com/Tonyl1337/crypto-service/internal/domain"
 )
 
@@ -19,7 +18,7 @@ type RateService struct {
 }
 
 type ExchangeClient interface {
-	GetPrices(ctx context.Context) (coingecko.PriceResponse, error)
+	GetRates(ctx context.Context) ([]domain.Rate, error)
 }
 
 func NewRateService(
@@ -33,26 +32,21 @@ func NewRateService(
 	}
 }
 
-func (s *RateService) UpdateRates(ctx context.Context) error {
+func (s *RateService) UpdateRates(
+	ctx context.Context,
+) error {
 
-	prices, err := s.client.GetPrices(ctx)
+	rates, err := s.client.GetRates(ctx)
 	if err != nil {
 		return err
 	}
 
-	for symbol, coin := range prices {
+	for i := range rates {
 
-		rate := &domain.Rate{
-			Symbol: coingecko.NormalizeSymbol(symbol),
-			Price:    coin.Price,
-			Change24H: coin.Change24H,
-			DayHigh:  coin.High24H,
-			DayLow:   coin.Low24H,
-		}
-
-		if err := s.repo.Save(ctx, rate); err != nil {
+		if err := s.repo.Save(ctx, &rates[i]); err != nil {
 			return err
 		}
+
 	}
 
 	return nil

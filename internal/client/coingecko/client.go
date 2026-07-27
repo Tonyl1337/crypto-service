@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/Tonyl1337/crypto-service/internal/domain"
 )
 
 const baseURL = "https://api.coingecko.com/api/v3"
@@ -24,7 +26,9 @@ func NewClient() *Client {
 }
 
 
-func (c *Client) GetPrices(ctx context.Context) (PriceResponse, error) {
+func (c *Client) GetRates(
+	ctx context.Context,
+) ([]domain.Rate, error) {
 
 	url := baseURL +
 		"/simple/price" +
@@ -60,5 +64,5 @@ func (c *Client) GetPrices(ctx context.Context) (PriceResponse, error) {
 		return nil, err
 	}
 
-	return result, nil
+	return ToDomain(result), nil
 }
