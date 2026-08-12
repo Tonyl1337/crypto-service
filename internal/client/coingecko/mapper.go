@@ -19,7 +19,6 @@ func NormalizeSymbol(id string) string {
 	}
 }
 
-
 func ToDomain(resp PriceResponse) []domain.Rate {
 
 	rates := make([]domain.Rate, 0, len(resp))
@@ -27,14 +26,13 @@ func ToDomain(resp PriceResponse) []domain.Rate {
 	for symbol, coin := range resp {
 
 		rates = append(rates, domain.Rate{
-			Symbol:    NormalizeSymbol(symbol),
-			Price:     coin.Price,
-			Change24H: coin.Change24H,
-			DayHigh:   coin.High24H,
-			DayLow:    coin.Low24H,
+			Symbol:   NormalizeSymbol(symbol),
+			Price:    coin.Price,
+			Change1H: coin.Change24H,
+			DayHigh:  coin.High24H,
+			DayLow:   coin.Low24H,
 		})
 	}
 
 	return rates
 }
-

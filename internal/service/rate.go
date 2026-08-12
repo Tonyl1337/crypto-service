@@ -12,6 +12,14 @@ type RateRepository interface {
 	GetBySymbol(ctx context.Context, symbol string) ([]domain.Rate, error)
 }
 
+type RateResponse struct {
+	Symbol   string  `json:"symbol"`
+	Price    float64 `json:"price"`
+	DayLow   float64 `json:"day_low"`
+	DayHigh  float64 `json:"day_high"`
+	Change1H float64 `json:"change_1h"`
+}
+
 type RateService struct {
 	repo   RateRepository
 	client ExchangeClient
@@ -50,4 +58,19 @@ func (s *RateService) UpdateRates(
 	}
 
 	return nil
+}
+
+func (s *RateService) GetLatest(
+	ctx context.Context,
+) ([]domain.Rate, error) {
+
+	return s.repo.GetLatest(ctx)
+}
+
+func (s *RateService) GetBySymbol(
+	ctx context.Context,
+	symbol string,
+) ([]domain.Rate, error) {
+
+	return s.repo.GetBySymbol(ctx, symbol)
 }

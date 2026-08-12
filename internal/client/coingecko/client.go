@@ -16,7 +16,6 @@ type Client struct {
 	httpClient *http.Client
 }
 
-
 func NewClient() *Client {
 	return &Client{
 		httpClient: &http.Client{
@@ -24,7 +23,6 @@ func NewClient() *Client {
 		},
 	}
 }
-
 
 func (c *Client) GetRates(
 	ctx context.Context,

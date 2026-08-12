@@ -16,7 +16,7 @@ func scanRates(rows pgx.Rows) ([]domain.Rate, error) {
 			&rate.ID,
 			&rate.Symbol,
 			&rate.Price,
-			&rate.Change24H,
+			&rate.Change1H,
 			&rate.DayLow,
 			&rate.DayHigh,
 			&rate.CreatedAt,
