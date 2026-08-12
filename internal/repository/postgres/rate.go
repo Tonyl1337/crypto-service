@@ -27,7 +27,7 @@ func (r *RateRepository) Save(
 		INSERT INTO rates (
 			symbol,
 			price,
-			change_24h,
+			change_1h,
 			day_low,
 			day_high,
 			created_at
@@ -40,7 +40,7 @@ func (r *RateRepository) Save(
 		query,
 		rate.Symbol,
 		rate.Price,
-		rate.Change24H,
+		rate.Change1H,
 		rate.DayLow,
 		rate.DayHigh,
 		rate.CreatedAt,
@@ -58,7 +58,7 @@ func (r *RateRepository) GetLatest(
 			id,
 			symbol,
 			price,
-			change_24h,
+			change_1h,
 			day_low,
 			day_high,
 			created_at
@@ -67,14 +67,13 @@ func (r *RateRepository) GetLatest(
 	`
 
 	rows, err := r.db.Query(ctx, query)
-if err != nil {
-	return nil, err
-}
-defer rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-return scanRates(rows)
+	return scanRates(rows)
 }
-
 
 func (r *RateRepository) GetBySymbol(
 	ctx context.Context,
@@ -86,7 +85,7 @@ func (r *RateRepository) GetBySymbol(
 			id,
 			symbol,
 			price,
-			change_24h,
+			change_1h,
 			day_low,
 			day_high,
 			created_at
@@ -96,10 +95,10 @@ func (r *RateRepository) GetBySymbol(
 	`
 
 	rows, err := r.db.Query(ctx, query, symbol)
-if err != nil {
-	return nil, err
-}
-defer rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-return scanRates(rows)
+	return scanRates(rows)
 }

@@ -9,9 +9,10 @@ import (
 	"github.com/Tonyl1337/crypto-service/internal/config"
 )
 
-func New(cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
+func NewPostgres(cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
+
 	dsn := fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		"postgres://%s:%s@%s:%s/%s",
 		cfg.User,
 		cfg.Password,
 		cfg.Host,
@@ -19,15 +20,15 @@ func New(cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
 		cfg.Name,
 	)
 
-	db, err := pgxpool.New(context.Background(), dsn)
+	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.Ping(context.Background()); err != nil {
-		db.Close()
+	if err := pool.Ping(context.Background()); err != nil {
+		pool.Close()
 		return nil, err
 	}
 
-	return db, nil
+	return pool, nil
 }
