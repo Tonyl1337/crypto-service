@@ -1,0 +1,2 @@
+ALTER TABLE telegram_subscriptions
+DROP COLUMN last_sent_at;

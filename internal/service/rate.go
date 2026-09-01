@@ -35,7 +35,7 @@ func NewRateService(
 ) *RateService {
 
 	return &RateService{
-		repo: repo,
+		repo:   repo,
 		client: client,
 	}
 }

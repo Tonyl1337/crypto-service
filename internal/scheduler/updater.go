@@ -19,7 +19,6 @@ func NewUpdater(
 	service RateUpdater,
 	interval time.Duration,
 ) *Updater {
-
 	return &Updater{
 		service:  service,
 		interval: interval,
@@ -27,9 +26,7 @@ func NewUpdater(
 }
 
 func (u *Updater) Start(ctx context.Context) {
-
 	go func() {
-
 		if err := u.service.UpdateRates(ctx); err != nil {
 			log.Println("initial update:", err)
 		}
@@ -38,11 +35,8 @@ func (u *Updater) Start(ctx context.Context) {
 		defer ticker.Stop()
 
 		for {
-
 			select {
-
 			case <-ticker.C:
-
 				if err := u.service.UpdateRates(ctx); err != nil {
 					log.Println(err)
 				}
@@ -50,8 +44,6 @@ func (u *Updater) Start(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			}
-
 		}
-
 	}()
 }

@@ -5,5 +5,5 @@ type Rate struct {
 	Price    float64 `json:"price"`
 	DayLow   float64 `json:"day_low"`
 	DayHigh  float64 `json:"day_high"`
-	Change1H float64 `json:"change_24h"`
+	Change1H float64 `json:"change_1h"`
 }

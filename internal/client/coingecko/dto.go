@@ -1,10 +1,12 @@
 package coingecko
 
-type PriceResponse map[string]Coin
+type MarketResponse []MarketData
 
-type Coin struct {
-	Price     float64 `json:"usd"`
-	Change24H float64 `json:"usd_24h_change"`
-	High24H   float64 `json:"usd_24h_high"`
-	Low24H    float64 `json:"usd_24h_low"`
+type MarketData struct {
+	ID                         string  `json:"id"`
+	Symbol                     string  `json:"symbol"`
+	CurrentPrice               float64 `json:"current_price"`
+	High24H                    float64 `json:"high_24h"`
+	Low24H                     float64 `json:"low_24h"`
+	PriceChangePercentage1H    float64 `json:"price_change_percentage_1h_in_currency"`
 }

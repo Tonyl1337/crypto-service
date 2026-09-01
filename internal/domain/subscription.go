@@ -10,4 +10,5 @@ type Subscription struct {
 	IntervalMinutes int
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
+	LastSentAt      *time.Time
 }

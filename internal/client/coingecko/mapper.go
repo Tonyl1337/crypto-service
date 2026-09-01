@@ -1,36 +1,39 @@
 package coingecko
 
 import (
+	"time"
+
 	"github.com/Tonyl1337/crypto-service/internal/domain"
 )
 
-func NormalizeSymbol(id string) string {
+func ToDomain(
+	coins MarketResponse,
+) []domain.Rate {
 
-	switch id {
+	rates := make([]domain.Rate, 0, len(coins))
 
-	case "bitcoin":
-		return "BTC"
+	for _, coin := range coins {
 
-	case "ethereum":
-		return "ETH"
+		symbol := ""
 
-	default:
-		return id
-	}
-}
+		switch coin.ID {
+		case "bitcoin":
+			symbol = "BTC"
 
-func ToDomain(resp PriceResponse) []domain.Rate {
+		case "ethereum":
+			symbol = "ETH"
 
-	rates := make([]domain.Rate, 0, len(resp))
-
-	for symbol, coin := range resp {
+		default:
+			continue
+		}
 
 		rates = append(rates, domain.Rate{
-			Symbol:   NormalizeSymbol(symbol),
-			Price:    coin.Price,
-			Change1H: coin.Change24H,
-			DayHigh:  coin.High24H,
-			DayLow:   coin.Low24H,
+			Symbol:    symbol,
+			Price:     coin.CurrentPrice,
+			Change1H:  coin.PriceChangePercentage1H,
+			DayLow:    coin.Low24H,
+			DayHigh:   coin.High24H,
+			CreatedAt: time.Now(),
 		})
 	}
 

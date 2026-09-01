@@ -4,10 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Tonyl1337/crypto-service/internal/domain"
 	"net/http"
 	"time"
-
-	"github.com/Tonyl1337/crypto-service/internal/domain"
 )
 
 const baseURL = "https://api.coingecko.com/api/v3"
@@ -29,12 +28,10 @@ func (c *Client) GetRates(
 ) ([]domain.Rate, error) {
 
 	url := baseURL +
-		"/simple/price" +
-		"?ids=bitcoin,ethereum" +
-		"&vs_currencies=usd" +
-		"&include_24hr_change=true" +
-		"&include_24hr_high=true" +
-		"&include_24hr_low=true"
+		"/coins/markets" +
+		"?vs_currency=usd" +
+		"&ids=bitcoin,ethereum" +
+		"&price_change_percentage=1h"
 
 	req, err := http.NewRequestWithContext(
 		ctx,
@@ -53,10 +50,13 @@ func (c *Client) GetRates(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
+		return nil, fmt.Errorf(
+			"unexpected status: %d",
+			resp.StatusCode,
+		)
 	}
 
-	var result PriceResponse
+	var result MarketResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
