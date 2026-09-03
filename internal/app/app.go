@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/Tonyl1337/crypto-service/internal/client/coingecko"
@@ -25,7 +26,13 @@ type App struct {
 
 func New() (*App, error) {
 
-	cfg, err := config.Load("configs/config.yaml")
+	configPath := os.Getenv("CONFIG_PATH")
+
+	if configPath == "" {
+		configPath = "configs/config.yaml"
+	}
+
+	cfg, err := config.Load(configPath)
 	if err != nil {
 		return nil, err
 	}
