@@ -139,6 +139,7 @@ func (s *SubscriptionSender) Start(
 				s.process(ctx)
 
 			case <-ctx.Done():
+				log.Println("subscription sender stopped")
 				return
 			}
 		}

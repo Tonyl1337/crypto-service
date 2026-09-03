@@ -42,6 +42,7 @@ func (u *Updater) Start(ctx context.Context) {
 				}
 
 			case <-ctx.Done():
+				log.Println("rate updater stopped")
 				return
 			}
 		}
