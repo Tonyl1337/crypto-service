@@ -1,0 +1,169 @@
+openapi: 3.0.3
+
+info:
+  title: Crypto Rates Service API
+  description: |
+    REST API для получения актуальных и исторических курсов криптовалют.
+
+    Сервис получает данные о курсах криптовалют из внешнего API,
+    сохраняет их в PostgreSQL и предоставляет через REST API.
+
+    Поддерживаемые криптовалюты:
+      - BTC
+      - ETH
+  version: 1.0.0
+  license:
+    name: Unlicensed
+
+servers:
+  - url: http://localhost:8080
+    description: Local server
+
+security: []
+
+tags:
+  - name: Rates
+    description: Операции с курсами криптовалют
+
+paths:
+  /rates:
+    get:
+      tags:
+        - Rates
+      summary: Получить актуальные курсы
+      description: Возвращает последние сохранённые курсы всех поддерживаемых криптовалют.
+      operationId: getRates
+
+      responses:
+        "200":
+          description: Курсы успешно получены
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rate"
+              example:
+                - symbol: BTC
+                  price: 63470
+                  day_low: 63267
+                  day_high: 64329
+                  change_1h: 0.1
+                - symbol: ETH
+                  price: 1883.48
+                  day_low: 1876.31
+                  day_high: 1918.99
+                  change_1h: -0.3
+
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /rates/{symbol}:
+    get:
+      tags:
+        - Rates
+      summary: Получить курсы конкретной криптовалюты
+      description: |
+        Возвращает сохранённые курсы указанной криптовалюты.
+
+        Поддерживаемые значения symbol: BTC и ETH.
+      operationId: getRatesBySymbol
+
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          description: Символ криптовалюты
+          schema:
+            type: string
+            enum:
+              - BTC
+              - ETH
+          example: BTC
+
+      responses:
+        "200":
+          description: Курсы криптовалюты успешно получены
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rate"
+              example:
+                - symbol: BTC
+                  price: 63470
+                  day_low: 63267
+                  day_high: 64329
+                  change_1h: 0.1
+
+        "400":
+          description: Некорректный символ криптовалюты
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: invalid cryptocurrency symbol
+
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+components:
+  schemas:
+    Rate:
+      type: object
+      required:
+        - symbol
+        - price
+        - day_low
+        - day_high
+        - change_1h
+      properties:
+        symbol:
+          type: string
+          description: Символ криптовалюты
+          example: BTC
+
+        price:
+          type: number
+          format: double
+          description: Текущая цена в USD
+          example: 63470
+
+        day_low:
+          type: number
+          format: double
+          description: Минимальная цена за последние 24 часа
+          example: 63267
+
+        day_high:
+          type: number
+          format: double
+          description: Максимальная цена за последние 24 часа
+          example: 64329
+
+        change_1h:
+          type: number
+          format: double
+          description: Изменение цены за последний час в процентах
+          example: 0.1
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: internal server error
+
+  responses:
+    InternalServerError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: internal server error

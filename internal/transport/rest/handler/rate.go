@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/Tonyl1337/crypto-service/internal/domain"
 	"github.com/Tonyl1337/crypto-service/internal/transport/rest/response"
@@ -49,10 +51,30 @@ func (h *RateHandler) GetBySymbol(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
+	symbol := strings.ToUpper(r.PathValue("symbol"))
 
-	http.Error(
+	if symbol != "BTC" && symbol != "ETH" {
+		response.WriteError(
+			w,
+			http.StatusBadRequest,
+			errors.New("invalid cryptocurrency symbol"),
+		)
+		return
+	}
+
+	rates, err := h.service.GetBySymbol(r.Context(), symbol)
+	if err != nil {
+		response.WriteError(
+			w,
+			http.StatusInternalServerError,
+			err,
+		)
+		return
+	}
+
+	response.WriteJSON(
 		w,
-		"not implemented",
-		http.StatusNotImplemented,
+		http.StatusOK,
+		response.FromDomainList(rates),
 	)
 }
