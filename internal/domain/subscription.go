@@ -2,7 +2,6 @@ package domain
 
 import "time"
 
-
 type Subscription struct {
 	ID              int64
 	ChatID          int64

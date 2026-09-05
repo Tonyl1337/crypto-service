@@ -3,10 +3,10 @@ package config
 import "time"
 
 type Config struct {
-    HTTP HTTPConfig `yaml:"http"`
-    Database DatabaseConfig `yaml:"database"`
-    Telegram TelegramConfig `yaml:"telegram"`
-    Scheduler SchedulerConfig `yaml:"scheduler"`
+	HTTP      HTTPConfig      `yaml:"http"`
+	Database  DatabaseConfig  `yaml:"database"`
+	Telegram  TelegramConfig  `yaml:"telegram"`
+	Scheduler SchedulerConfig `yaml:"scheduler"`
 }
 
 type HTTPConfig struct {
@@ -14,24 +14,21 @@ type HTTPConfig struct {
 }
 
 type DatabaseConfig struct {
+	Host string `yaml:"host"`
 
-    Host string `yaml:"host"`
+	Port string `yaml:"port"`
 
-    Port string `yaml:"port"`
+	User string `yaml:"user"`
 
-    User string `yaml:"user"`
+	Password string `yaml:"password"`
 
-    Password string `yaml:"password"`
-
-    Name string `yaml:"name"`
+	Name string `yaml:"name"`
 }
 
 type TelegramConfig struct {
-
-    Token string `yaml:"token"`
+	Token string `yaml:"token"`
 }
 
 type SchedulerConfig struct {
-
-    Interval time.Duration `yaml:"interval"`
+	Interval time.Duration `yaml:"interval"`
 }

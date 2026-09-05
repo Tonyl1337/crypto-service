@@ -2,16 +2,16 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tonyl1337/crypto-service/internal/transport/rest/response"
 	"github.com/Tonyl1337/crypto-service/internal/domain"
+	"github.com/Tonyl1337/crypto-service/internal/transport/rest/response"
 )
 
 type mockRateService struct {
@@ -26,7 +26,6 @@ func (m *mockRateService) GetLatest(
 	return m.rates, m.err
 }
 
-
 func (m *mockRateService) GetBySymbol(
 	ctx context.Context,
 	symbol string,
@@ -35,68 +34,67 @@ func (m *mockRateService) GetBySymbol(
 	return nil, nil
 }
 
-
 func TestRateHandler_GetLatest_Success(t *testing.T) {
 
-service := &mockRateService{
-	rates: []domain.Rate{
-		{
-			Symbol:    "BTC",
-			Price:     100000,
-			DayLow:    98000,
-			DayHigh:   101000,
-			Change1H: 2.5,
+	service := &mockRateService{
+		rates: []domain.Rate{
+			{
+				Symbol:   "BTC",
+				Price:    100000,
+				DayLow:   98000,
+				DayHigh:  101000,
+				Change1H: 2.5,
+			},
 		},
-	},
-}
+	}
 
-handler := NewRateHandler(service)
+	handler := NewRateHandler(service)
 
-request := httptest.NewRequest(
-	http.MethodGet,
-	"/rates",
-	nil,
-)
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/rates",
+		nil,
+	)
 
-recorder := httptest.NewRecorder()
+	recorder := httptest.NewRecorder()
 
-handler.GetLatest(
-	recorder,
-	request,
-)
+	handler.GetLatest(
+		recorder,
+		request,
+	)
 
-require.Equal(
-	t,
-	http.StatusOK,
-	recorder.Code,
-)
+	require.Equal(
+		t,
+		http.StatusOK,
+		recorder.Code,
+	)
 
-var actual []response.Rate
+	var actual []response.Rate
 
-err := json.Unmarshal(
-	recorder.Body.Bytes(),
-	&actual,
-)
+	err := json.Unmarshal(
+		recorder.Body.Bytes(),
+		&actual,
+	)
 
-require.NoError(t, err)
+	require.NoError(t, err)
 
-require.Len(
-	t,
-	actual,
-	1,
-)
+	require.Len(
+		t,
+		actual,
+		1,
+	)
 
-require.Equal(
-	t,
-	"BTC",
-	actual[0].Symbol,
-)
+	require.Equal(
+		t,
+		"BTC",
+		actual[0].Symbol,
+	)
 
-require.Equal(
-	t,
-	100000.0,
-	actual[0].Price,
-)
+	require.Equal(
+		t,
+		100000.0,
+		actual[0].Price,
+	)
 }
 
 func TestRateHandler_GetLatest_Error(t *testing.T) {
