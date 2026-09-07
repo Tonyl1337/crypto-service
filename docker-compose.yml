@@ -21,6 +21,25 @@ services:
       timeout: 5s
       retries: 5
 
+  migrate:
+    image: migrate/migrate:v4.18.3
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    volumes:
+      - ./migrations:/migrations
+
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://postgres:${DATABASE_PASSWORD}@postgres:5432/crypto?sslmode=disable",
+        "up"
+      ]
+
   app:
     build:
       context: .
@@ -32,11 +51,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
     environment:
-     CONFIG_PATH: configs/config.docker.yaml
-     TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
-     DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      CONFIG_PATH: configs/config.docker.yaml
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
 
     ports:
       - "8080:8080"

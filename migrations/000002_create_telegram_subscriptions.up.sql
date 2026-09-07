@@ -8,7 +8,7 @@ CREATE TABLE telegram_subscriptions (
 );
 
 CREATE INDEX idx_subscriptions_chat_id
-    ON subscriptions(chat_id);
+    ON telegram_subscriptions(chat_id);
 
 CREATE INDEX idx_subscriptions_enabled
-    ON subscriptions(enabled);
+    ON telegram_subscriptions(enabled);
