@@ -31,14 +31,18 @@ type SubscriptionService interface {
 	) error
 }
 
+type MessageSender interface {
+	SendMessage(chatID int64, text string) error
+}
+
 type Handler struct {
-	bot                 *Bot
+	bot                 MessageSender
 	rateService         RateService
 	subscriptionService SubscriptionService
 }
 
 func NewHandler(
-	bot *Bot,
+	bot MessageSender,
 	rateService RateService,
 	subscriptionService SubscriptionService,
 ) *Handler {

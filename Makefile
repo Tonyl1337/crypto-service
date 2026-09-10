@@ -1,33 +1,42 @@
 APP_NAME=crypto-rates
 
-DB_URL=postgres://postgres:postgres@postgres:5432/crypto?sslmode=disable
+.PHONY: run test test-cover fmt vet build check docker-up docker-down docker-logs migrate-up migrate-down
 
 run:
 	go run ./cmd/server
 
-build:
-	go build -o bin/$(APP_NAME) ./cmd/server
-
 test:
 	go test ./...
 
+test-cover:
+	go test ./... -cover
+
 fmt:
-	go fmt ./...
+	gofmt -w .
 
 vet:
 	go vet ./...
 
+build:
+	mkdir -p bin
+	go build -o bin/$(APP_NAME) ./cmd/server
+
+check: fmt vet test build
+
+docker-up:
+	docker compose up -d --build
+
+docker-down:
+	docker compose down
+
+docker-logs:
+	docker compose logs -f app
+
 migrate-up:
-	docker compose run --rm migrate \
-		-path=/migrations \
-		-database "$(DB_URL)" up
+	docker compose run --rm migrate
 
 migrate-down:
 	docker compose run --rm migrate \
-		-path=/migrations \
-		-database "$(DB_URL)" down
-
-migrate-version:
-	docker compose run --rm migrate \
-		-path=/migrations \
-		-database "$(DB_URL)" version
+		-path /migrations \
+		-database "postgres://postgres:$${DATABASE_PASSWORD}@postgres:5432/crypto?sslmode=disable" \
+		down 1
