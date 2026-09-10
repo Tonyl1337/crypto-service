@@ -7,15 +7,15 @@ The service periodically fetches BTC and ETH market data from CoinGecko, stores 
 ## Features
 
 - BTC and ETH rate tracking
-- Automatic rate updates
+- Automatic rate updates on startup and at a configurable interval
 - PostgreSQL persistence
 - REST API
 - Telegram bot
 - Automatic Telegram subscriptions
-- Configurable notification interval
+- Configurable notification interval for each Telegram user
 - Graceful shutdown
 - Docker and Docker Compose support
-- Database migrations
+- Automatic database migrations with Docker Compose
 - Unit tests
 - OpenAPI specification
 - GitHub Actions CI
@@ -65,7 +65,7 @@ The application is split into several layers:
                               └──────────────────┘
 ```
 
-### Project structure
+### Project Structure
 
 ```text
 crypto-service/
@@ -73,6 +73,7 @@ crypto-service/
 │   └── server/
 │       └── main.go
 ├── configs/
+│   └── config.example.yaml
 ├── docs/
 │   └── openapi.yaml
 ├── internal/
@@ -82,6 +83,7 @@ crypto-service/
 │   ├── config/
 │   ├── database/
 │   ├── domain/
+│   ├── logger/
 │   ├── repository/
 │   │   └── postgres/
 │   ├── scheduler/
@@ -93,9 +95,14 @@ crypto-service/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
+├── .env.example
+├── .gitignore
+├── .dockerignore
 ├── Dockerfile
 ├── docker-compose.yml
+├── Makefile
 ├── go.mod
+├── go.sum
 └── README.md
 ```
 
@@ -107,7 +114,7 @@ The REST server runs on:
 http://localhost:8080
 ```
 
-### Get latest rates
+### Get Latest Rates
 
 ```http
 GET /rates
@@ -140,7 +147,7 @@ Example response:
 ]
 ```
 
-### Get rates by cryptocurrency
+### Get Rates by Cryptocurrency
 
 ```http
 GET /rates/{symbol}
@@ -198,7 +205,9 @@ Example:
 /start_auto 5
 ```
 
-enables automatic Telegram updates every 5 minutes.
+This enables automatic Telegram updates every 5 minutes.
+
+Each Telegram user can configure their own notification interval.
 
 ## Configuration
 
@@ -215,26 +224,56 @@ TELEGRAM_TOKEN=your_telegram_bot_token
 DATABASE_PASSWORD=your_database_password
 ```
 
-Do not commit the `.env` file.
+Application configuration examples are available in:
+
+```text
+configs/config.example.yaml
+```
+
+Sensitive values such as the Telegram bot token and database password are supplied through environment variables and must not be committed to the repository.
+
+The `.env` file and local configuration files are ignored by Git.
 
 ## Running with Docker Compose
 
-Build and start the application and PostgreSQL:
+Build and start the complete application stack:
 
 ```bash
 docker compose up --build
 ```
 
-Or run in the background:
+Or run it in the background:
 
 ```bash
 docker compose up -d --build
 ```
 
-Check running containers:
+Docker Compose starts:
+
+- PostgreSQL
+- database migration service
+- Crypto Rates Service
+
+The application waits for PostgreSQL to become healthy and for database migrations to complete before starting.
+
+Check container status:
 
 ```bash
-docker compose ps
+docker compose ps -a
+```
+
+A successful startup should show:
+
+```text
+PostgreSQL        running (healthy)
+Migration service exited with code 0
+Application       running
+```
+
+View application logs:
+
+```bash
+docker compose logs -f app
 ```
 
 Stop the application:
@@ -249,7 +288,7 @@ To also remove the PostgreSQL volume:
 docker compose down -v
 ```
 
-> `docker compose down -v` deletes the database data stored in the Docker volume.
+> `docker compose down -v` permanently deletes the database data stored in the Docker volume.
 
 ## Database Migrations
 
@@ -259,13 +298,33 @@ Database migrations are located in:
 migrations/
 ```
 
-Current migrations create:
+Current migrations create and manage:
 
-- rates table
-- Telegram subscriptions table
+- `rates` table
+- `telegram_subscriptions` table
 - subscription `last_sent_at` field
 
-If migrations are not applied automatically in your Docker setup, install `golang-migrate` and run:
+When the application is started with Docker Compose, migrations are applied automatically before the application starts.
+
+The `migrate` service waits for PostgreSQL to become healthy, applies all pending migrations, and exits successfully. The application starts only after the migration service completes.
+
+Start the complete stack:
+
+```bash
+docker compose up -d --build
+```
+
+Check migration status through Docker Compose:
+
+```bash
+docker compose ps -a
+```
+
+The migration container should finish with exit code `0`.
+
+### Manual Migrations
+
+If needed, migrations can also be applied manually using `golang-migrate`:
 
 ```bash
 migrate \
@@ -291,7 +350,13 @@ Start PostgreSQL:
 docker compose up -d postgres
 ```
 
-Configure the application and then run:
+Create the local environment file:
+
+```bash
+cp .env.example .env
+```
+
+Configure the required environment variables and then run:
 
 ```bash
 go run ./cmd/server
@@ -303,9 +368,85 @@ The REST API will be available at:
 http://localhost:8080
 ```
 
+## Makefile
+
+The project provides several useful Makefile commands.
+
+Run the application:
+
+```bash
+make run
+```
+
+Run tests:
+
+```bash
+make test
+```
+
+Run tests with coverage:
+
+```bash
+make test-cover
+```
+
+Format the code:
+
+```bash
+make fmt
+```
+
+Run static analysis:
+
+```bash
+make vet
+```
+
+Build the application:
+
+```bash
+make build
+```
+
+Run formatting, static analysis, tests, and build together:
+
+```bash
+make check
+```
+
+Start the Docker Compose stack:
+
+```bash
+make docker-up
+```
+
+Stop the Docker Compose stack:
+
+```bash
+make docker-down
+```
+
+View application logs:
+
+```bash
+make docker-logs
+```
+
 ## Tests
 
 Run all tests:
+
+```bash
+make test
+```
+
+Run tests with coverage:
+
+```bash
+make test-cover
+```
+
+You can also run tests directly with Go:
 
 ```bash
 go test ./...
@@ -317,29 +458,48 @@ Run tests with verbose output:
 go test ./... -v
 ```
 
-Run tests with coverage:
+The project includes tests for core application logic, including:
 
-```bash
-go test ./... -cover
-```
+- CoinGecko client
+- rate service
+- scheduler
+- REST handlers
+- REST responses
+- Telegram command handlers
+- Telegram subscription logic
 
 ## Code Quality
 
 Format the project:
 
 ```bash
-gofmt -w .
+make fmt
 ```
 
 Run static analysis:
 
 ```bash
-go vet ./...
+make vet
 ```
 
-Build the project:
+Build the application:
 
 ```bash
+make build
+```
+
+Run the complete local check:
+
+```bash
+make check
+```
+
+The equivalent Go commands are:
+
+```bash
+gofmt -w .
+go vet ./...
+go test ./...
 go build ./...
 ```
 
@@ -362,6 +522,8 @@ Workflow:
 .github/workflows/ci.yml
 ```
 
+This ensures that changes pushed to the repository compile successfully, pass tests, follow Go formatting rules, and produce a valid Docker image.
+
 ## Graceful Shutdown
 
 The application handles `SIGINT` and `SIGTERM`.
@@ -377,15 +539,66 @@ This allows the application to terminate cleanly both locally and inside Docker.
 
 ## Rate Updates
 
-The rate updater fetches cryptocurrency data when the service starts and then periodically according to the configured scheduler interval.
+The rate updater fetches BTC and ETH market data when the service starts and then periodically according to the configured scheduler interval.
 
-The default interval is:
+The default update interval is:
 
 ```text
 5m
 ```
 
-Telegram subscription intervals are configured separately by each user through `/start_auto`.
+Telegram subscription intervals are configured separately by each user through:
+
+```text
+/start_auto N
+```
+
+For example:
+
+```text
+/start_auto 10
+```
+
+enables automatic rate notifications every 10 minutes for that Telegram chat.
+
+## OpenAPI
+
+The REST API is documented using OpenAPI 3.0.
+
+Specification:
+
+```text
+docs/openapi.yaml
+```
+
+The specification documents:
+
+- `GET /rates`
+- `GET /rates/{symbol}`
+- rate response schema
+- error response schema
+
+## Security
+
+Secrets are not stored in the repository.
+
+Local sensitive values are provided through:
+
+```text
+.env
+```
+
+The following files are excluded from Git:
+
+```text
+.env
+configs/config.yaml
+configs/config.docker.yaml
+```
+
+Example configuration files contain placeholders only and can safely be committed.
+
+Never commit a real Telegram bot token or database password.
 
 ## License
 
