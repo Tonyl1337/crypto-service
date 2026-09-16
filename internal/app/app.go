@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -77,8 +78,14 @@ func New() (*App, error) {
 
 	rateHandler := handler.NewRateHandler(rateService)
 
+	httpAddress := fmt.Sprintf(
+		"%s:%s",
+		cfg.HTTP.Host,
+		cfg.HTTP.Port,
+	)
+
 	server := rest.NewServer(
-		cfg.HTTP.Address,
+		httpAddress,
 		rateHandler,
 	)
 

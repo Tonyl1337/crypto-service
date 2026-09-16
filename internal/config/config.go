@@ -10,19 +10,17 @@ type Config struct {
 }
 
 type HTTPConfig struct {
-	Address string `yaml:"address"`
+	Host string `yaml:"host"`
+	Port string `yaml:"port"`
 }
 
 type DatabaseConfig struct {
-	Host string `yaml:"host"`
-
-	Port string `yaml:"port"`
-
-	User string `yaml:"user"`
-
+	Host     string `yaml:"host"`
+	Port     string `yaml:"port"`
+	User     string `yaml:"user"`
 	Password string `yaml:"password"`
-
-	Name string `yaml:"name"`
+	Name     string `yaml:"name"`
+	SSLMode  string `yaml:"sslmode"`
 }
 
 type TelegramConfig struct {

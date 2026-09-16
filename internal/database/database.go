@@ -11,12 +11,13 @@ import (
 
 func New(cfg config.DatabaseConfig) (*pgxpool.Pool, error) {
 	dsn := fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		"postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.User,
 		cfg.Password,
 		cfg.Host,
 		cfg.Port,
 		cfg.Name,
+		cfg.SSLMode,
 	)
 
 	db, err := pgxpool.New(context.Background(), dsn)

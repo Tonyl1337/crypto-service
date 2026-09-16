@@ -1,5 +1,6 @@
 http:
-  address: "localhost:8080"
+  host: "localhost"
+  port: "8080"
 
 database:
   host: "localhost"
@@ -7,6 +8,7 @@ database:
   user: "postgres"
   password: "postgres"
   name: "crypto"
+  sslmode: "disable"
 
 telegram:
   token: "YOUR_BOT_TOKEN"
