@@ -20,6 +20,7 @@ RUN apk add --no-cache ca-certificates
 
 COPY --from=builder /crypto-service /app/crypto-service
 COPY configs /app/configs
+COPY api /app/api
 
 EXPOSE 8080
 

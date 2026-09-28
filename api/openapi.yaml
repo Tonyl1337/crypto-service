@@ -1,0 +1,131 @@
+openapi: 3.0.3
+
+info:
+  title: Crypto Service API
+  description: REST API for retrieving cryptocurrency rates.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /rates:
+    get:
+      summary: Get latest cryptocurrency rates
+      operationId: getLatestRates
+      responses:
+        "200":
+          description: Latest cryptocurrency rates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rate"
+
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /rates/{symbol}:
+    get:
+      summary: Get current rate for a cryptocurrency
+      operationId: getRateBySymbol
+
+      parameters:
+        - name: symbol
+          in: path
+          required: true
+          description: Cryptocurrency symbol or CoinGecko ID
+          schema:
+            type: string
+          examples:
+            bitcoin:
+              value: BTC
+            ethereum:
+              value: ETH
+            dogecoin:
+              value: DOGE
+            solana:
+              value: SOL
+
+      responses:
+        "200":
+          description: Current cryptocurrency rate
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Rate"
+
+        "400":
+          description: Invalid or ambiguous cryptocurrency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "404":
+          description: Cryptocurrency not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+        "502":
+          description: Failed to communicate with upstream cryptocurrency service
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    Rate:
+      type: object
+      required:
+        - symbol
+        - price
+        - day_low
+        - day_high
+        - change_1h
+
+      properties:
+        symbol:
+          type: string
+          example: BTC
+
+        price:
+          type: number
+          format: double
+          example: 83405
+
+        day_low:
+          type: number
+          format: double
+          example: 82581
+
+        day_high:
+          type: number
+          format: double
+          example: 84945
+
+        change_1h:
+          type: number
+          format: double
+          example: 0.0592
+
+    Error:
+      type: object
+      required:
+        - error
+
+      properties:
+        error:
+          type: string
+          example: cryptocurrency not found

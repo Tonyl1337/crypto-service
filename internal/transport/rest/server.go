@@ -31,6 +31,55 @@ func NewServer(
 		rateHandler.GetBySymbol,
 	)
 
+	mux.HandleFunc(
+		"GET /openapi.yaml",
+		func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			stdhttp.ServeFile(
+				w,
+				r,
+				"api/openapi.yaml",
+			)
+		},
+	)
+
+	mux.HandleFunc(
+		"GET /swagger/",
+		func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			w.Header().Set(
+				"Content-Type",
+				"text/html; charset=utf-8",
+			)
+
+			_, _ = w.Write([]byte(`<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<title>Crypto Service API</title>
+	
+		<link
+			rel="stylesheet"
+			href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"
+		>
+	</head>
+	
+	<body>
+		<div id="swagger-ui"></div>
+	
+		<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+	
+		<script>
+			window.onload = function() {
+				SwaggerUIBundle({
+					url: "/openapi.yaml",
+					dom_id: "#swagger-ui"
+				});
+			};
+		</script>
+	</body>
+	</html>`))
+		},
+	)
+
 	server := &stdhttp.Server{
 		Addr:         address,
 		Handler:      mux,
