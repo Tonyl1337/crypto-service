@@ -3,11 +3,12 @@ package domain
 import "time"
 
 type Rate struct {
-	ID        int64
-	Symbol    string
-	Price     float64
-	Change1H  float64
-	DayLow    float64
-	DayHigh   float64
-	CreatedAt time.Time
+	ID          int64
+	CoinGeckoID string
+	Symbol      string
+	Price       float64
+	Change1H    float64
+	DayLow      float64
+	DayHigh     float64
+	CreatedAt   time.Time
 }

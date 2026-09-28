@@ -10,14 +10,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/Tonyl1337/crypto-service/internal/client/coingecko"
 	"github.com/Tonyl1337/crypto-service/internal/domain"
 	"github.com/Tonyl1337/crypto-service/internal/transport/rest/response"
 )
 
 type mockRateService struct {
-	rates           []domain.Rate
-	err             error
-	requestedSymbol string
+	rates                []domain.Rate
+	err                  error
+	currentRate          *domain.Rate
+	currentRateErr       error
+	requestedCoinGeckoID string
 }
 
 func (m *mockRateService) GetLatest(
@@ -26,13 +29,28 @@ func (m *mockRateService) GetLatest(
 	return m.rates, m.err
 }
 
-func (m *mockRateService) GetBySymbol(
+func (m *mockRateService) GetCurrentRate(
 	ctx context.Context,
-	symbol string,
-) ([]domain.Rate, error) {
-	m.requestedSymbol = symbol
+	coinGeckoID string,
+) (*domain.Rate, error) {
+	m.requestedCoinGeckoID = coinGeckoID
 
-	return m.rates, m.err
+	return m.currentRate, m.currentRateErr
+}
+
+type mockCoinResolver struct {
+	coin      *domain.Coin
+	err       error
+	requested string
+}
+
+func (m *mockCoinResolver) ResolveCoin(
+	ctx context.Context,
+	query string,
+) (*domain.Coin, error) {
+	m.requested = query
+
+	return m.coin, m.err
 }
 
 func TestRateHandler_GetLatest_Success(t *testing.T) {
@@ -49,7 +67,10 @@ func TestRateHandler_GetLatest_Success(t *testing.T) {
 		},
 	}
 
-	handler := NewRateHandler(service)
+	handler := NewRateHandler(
+		service,
+		&mockCoinResolver{},
+	)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
@@ -104,7 +125,10 @@ func TestRateHandler_GetLatest_Error(t *testing.T) {
 		err: errors.New("database unavailable"),
 	}
 
-	handler := NewRateHandler(service)
+	handler := NewRateHandler(
+		service,
+		&mockCoinResolver{},
+	)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
@@ -144,7 +168,10 @@ func TestRateHandler_GetLatest_Empty(t *testing.T) {
 		rates: []domain.Rate{},
 	}
 
-	handler := NewRateHandler(service)
+	handler := NewRateHandler(
+		service,
+		&mockCoinResolver{},
+	)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
@@ -179,30 +206,46 @@ func TestRateHandler_GetLatest_Empty(t *testing.T) {
 
 func TestRateHandler_GetBySymbol_Success(t *testing.T) {
 	service := &mockRateService{
-		rates: []domain.Rate{
-			{
-				Symbol:   "BTC",
-				Price:    100000,
-				DayLow:   98000,
-				DayHigh:  101000,
-				Change1H: 2.5,
-			},
+		currentRate: &domain.Rate{
+			CoinGeckoID: "dogecoin",
+			Symbol:      "DOGE",
+			Price:       0.1,
+			DayLow:      0.09,
+			DayHigh:     0.11,
+			Change1H:    0.5,
 		},
 	}
 
-	handler := NewRateHandler(service)
+	resolver := &mockCoinResolver{
+		coin: &domain.Coin{
+			ID:     "dogecoin",
+			Symbol: "DOGE",
+			Name:   "Dogecoin",
+		},
+	}
+
+	handler := NewRateHandler(
+		service,
+		resolver,
+	)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
-		"/rates/BTC",
+		"/rates/DOGE",
 		nil,
 	)
 
-	request.SetPathValue("symbol", "BTC")
+	request.SetPathValue(
+		"symbol",
+		"DOGE",
+	)
 
 	recorder := httptest.NewRecorder()
 
-	handler.GetBySymbol(recorder, request)
+	handler.GetBySymbol(
+		recorder,
+		request,
+	)
 
 	require.Equal(
 		t,
@@ -212,8 +255,14 @@ func TestRateHandler_GetBySymbol_Success(t *testing.T) {
 
 	require.Equal(
 		t,
-		"BTC",
-		service.requestedSymbol,
+		"DOGE",
+		resolver.requested,
+	)
+
+	require.Equal(
+		t,
+		"dogecoin",
+		service.requestedCoinGeckoID,
 	)
 
 	var actual []response.Rate
@@ -225,134 +274,58 @@ func TestRateHandler_GetBySymbol_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, actual, 1)
-	require.Equal(t, "BTC", actual[0].Symbol)
-	require.Equal(t, 100000.0, actual[0].Price)
-}
-
-func TestRateHandler_GetBySymbol_Lowercase(t *testing.T) {
-	service := &mockRateService{
-		rates: []domain.Rate{
-			{
-				Symbol: "ETH",
-				Price:  2000,
-			},
-		},
-	}
-
-	handler := NewRateHandler(service)
-
-	request := httptest.NewRequest(
-		http.MethodGet,
-		"/rates/eth",
-		nil,
-	)
-
-	request.SetPathValue("symbol", "eth")
-
-	recorder := httptest.NewRecorder()
-
-	handler.GetBySymbol(recorder, request)
 
 	require.Equal(
 		t,
-		http.StatusOK,
-		recorder.Code,
+		"DOGE",
+		actual[0].Symbol,
 	)
 
 	require.Equal(
 		t,
-		"ETH",
-		service.requestedSymbol,
+		0.1,
+		actual[0].Price,
 	)
 }
 
-func TestRateHandler_GetBySymbol_InvalidSymbol(t *testing.T) {
+func TestRateHandler_GetBySymbol_NotFound(t *testing.T) {
 	service := &mockRateService{}
 
-	handler := NewRateHandler(service)
+	resolver := &mockCoinResolver{
+		err: coingecko.ErrCoinNotFound,
+	}
+
+	handler := NewRateHandler(
+		service,
+		resolver,
+	)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
-		"/rates/DOGE",
+		"/rates/UNKNOWN",
 		nil,
 	)
 
-	request.SetPathValue("symbol", "DOGE")
+	request.SetPathValue(
+		"symbol",
+		"UNKNOWN",
+	)
 
 	recorder := httptest.NewRecorder()
 
-	handler.GetBySymbol(recorder, request)
+	handler.GetBySymbol(
+		recorder,
+		request,
+	)
 
 	require.Equal(
 		t,
-		http.StatusBadRequest,
+		http.StatusNotFound,
 		recorder.Code,
 	)
 
 	require.Empty(
 		t,
-		service.requestedSymbol,
-	)
-
-	var actual response.Error
-
-	err := json.Unmarshal(
-		recorder.Body.Bytes(),
-		&actual,
-	)
-
-	require.NoError(t, err)
-
-	require.Equal(
-		t,
-		"invalid cryptocurrency symbol",
-		actual.Error,
-	)
-}
-
-func TestRateHandler_GetBySymbol_Error(t *testing.T) {
-	service := &mockRateService{
-		err: errors.New("database unavailable"),
-	}
-
-	handler := NewRateHandler(service)
-
-	request := httptest.NewRequest(
-		http.MethodGet,
-		"/rates/BTC",
-		nil,
-	)
-
-	request.SetPathValue("symbol", "BTC")
-
-	recorder := httptest.NewRecorder()
-
-	handler.GetBySymbol(recorder, request)
-
-	require.Equal(
-		t,
-		http.StatusInternalServerError,
-		recorder.Code,
-	)
-
-	require.Equal(
-		t,
-		"BTC",
-		service.requestedSymbol,
-	)
-
-	var actual response.Error
-
-	err := json.Unmarshal(
-		recorder.Body.Bytes(),
-		&actual,
-	)
-
-	require.NoError(t, err)
-
-	require.Equal(
-		t,
-		"database unavailable",
-		actual.Error,
+		service.requestedCoinGeckoID,
 	)
 }

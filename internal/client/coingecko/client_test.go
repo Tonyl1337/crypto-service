@@ -11,7 +11,13 @@ func TestClient_GetRates(t *testing.T) {
 
 	client := NewClient()
 
-	rates, err := client.GetRates(context.Background())
+	rates, err := client.GetRates(
+		context.Background(),
+		[]string{
+			"bitcoin",
+			"ethereum",
+		},
+	)
 
 	require.NoError(t, err)
 	require.NotEmpty(t, rates)

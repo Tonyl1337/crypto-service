@@ -18,6 +18,39 @@ func NewRateRepository(db *pgxpool.Pool) *RateRepository {
 	}
 }
 
+func (r *RateRepository) GetByCoinGeckoID(
+	ctx context.Context,
+	coinGeckoID string,
+) ([]domain.Rate, error) {
+
+	const query = `
+		SELECT
+			id,
+			coingecko_id,
+			symbol,
+			price,
+			change_1h,
+			day_low,
+			day_high,
+			created_at
+		FROM rates
+		WHERE coingecko_id = $1
+		ORDER BY created_at DESC;
+	`
+
+	rows, err := r.db.Query(
+		ctx,
+		query,
+		coinGeckoID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanRates(rows)
+}
+
 func (r *RateRepository) Save(
 	ctx context.Context,
 	rate *domain.Rate,
@@ -25,6 +58,7 @@ func (r *RateRepository) Save(
 
 	const query = `
 		INSERT INTO rates (
+			coingecko_id,
 			symbol,
 			price,
 			change_1h,
@@ -32,12 +66,13 @@ func (r *RateRepository) Save(
 			day_high,
 			created_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 
 	_, err := r.db.Exec(
 		ctx,
 		query,
+		rate.CoinGeckoID,
 		rate.Symbol,
 		rate.Price,
 		rate.Change1H,
@@ -54,16 +89,17 @@ func (r *RateRepository) GetLatest(
 ) ([]domain.Rate, error) {
 
 	const query = `
-		SELECT DISTINCT ON (symbol)
-			id,
-			symbol,
-			price,
-			change_1h,
-			day_low,
-			day_high,
-			created_at
-		FROM rates
-		ORDER BY symbol, created_at DESC;
+		SELECT DISTINCT ON (coingecko_id)
+		id,
+		coingecko_id,
+		symbol,
+		price,
+		change_1h,
+		day_low,
+		day_high,
+		created_at
+	FROM rates
+	ORDER BY coingecko_id, created_at DESC;
 	`
 
 	rows, err := r.db.Query(ctx, query)
@@ -82,16 +118,17 @@ func (r *RateRepository) GetBySymbol(
 
 	const query = `
 		SELECT
-			id,
-			symbol,
-			price,
-			change_1h,
-			day_low,
-			day_high,
-			created_at
-		FROM rates
-		WHERE symbol = $1
-		ORDER BY created_at DESC;
+		id,
+		coingecko_id,
+		symbol,
+		price,
+		change_1h,
+		day_low,
+		day_high,
+		created_at
+	FROM rates
+	WHERE symbol = $1
+	ORDER BY created_at DESC;
 	`
 
 	rows, err := r.db.Query(ctx, query, symbol)

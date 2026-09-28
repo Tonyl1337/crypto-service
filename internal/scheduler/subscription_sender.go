@@ -21,14 +21,16 @@ type SubscriptionProvider interface {
 	MarkSent(
 		ctx context.Context,
 		chatID int64,
-		sentAT time.Time,
+		coinGeckoID string,
+		sentAt time.Time,
 	) error
 }
 
 type RateProvider interface {
-	GetLatest(
+	GetCurrentRate(
 		ctx context.Context,
-	) ([]domain.Rate, error)
+		coinGeckoID string,
+	) (*domain.Rate, error)
 }
 
 type MessageSender interface {
@@ -81,20 +83,24 @@ func (s *SubscriptionSender) process(
 			continue
 		}
 
-		rates, err := s.rates.GetLatest(ctx)
+		rate, err := s.rates.GetCurrentRate(
+			ctx,
+			subscription.CoinGeckoID,
+		)
 		if err != nil {
 			log.Printf(
-				"get rates for Telegram subscription: %v",
+				"get current rate %s for Telegram subscription: %v",
+				subscription.CoinGeckoID,
 				err,
 			)
 			continue
 		}
 
-		if len(rates) == 0 {
+		if rate == nil {
 			continue
 		}
 
-		message := formatRates(rates)
+		message := formatRates([]domain.Rate{*rate})
 
 		if err := s.sender.SendMessage(
 			subscription.ChatID,
@@ -112,9 +118,9 @@ func (s *SubscriptionSender) process(
 		if err := s.subscriptions.MarkSent(
 			ctx,
 			subscription.ChatID,
+			subscription.CoinGeckoID,
 			now,
 		); err != nil {
-
 			log.Printf(
 				"mark Telegram subscription sent: %v",
 				err,

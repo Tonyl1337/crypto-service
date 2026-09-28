@@ -14,6 +14,7 @@ func scanRates(rows pgx.Rows) ([]domain.Rate, error) {
 
 		err := rows.Scan(
 			&rate.ID,
+			&rate.CoinGeckoID,
 			&rate.Symbol,
 			&rate.Price,
 			&rate.Change1H,

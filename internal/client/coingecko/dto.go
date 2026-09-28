@@ -10,3 +10,14 @@ type MarketData struct {
 	Low24H                  float64 `json:"low_24h"`
 	PriceChangePercentage1H float64 `json:"price_change_percentage_1h_in_currency"`
 }
+
+type SearchResponse struct {
+	Coins []SearchCoin `json:"coins"`
+}
+
+type SearchCoin struct {
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	Symbol        string `json:"symbol"`
+	MarketCapRank *int   `json:"market_cap_rank"`
+}

@@ -12,12 +12,14 @@ import (
 type mockRateRepository struct {
 	savedRates []domain.Rate
 
-	getLatestResult   []domain.Rate
-	getBySymbolResult []domain.Rate
+	getLatestResult        []domain.Rate
+	getBySymbolResult      []domain.Rate
+	getByCoinGeckoIDResult []domain.Rate
 
-	saveErr        error
-	getLatestErr   error
-	getBySymbolErr error
+	saveErr             error
+	getLatestErr        error
+	getBySymbolErr      error
+	getByCoinGeckoIDErr error
 }
 
 func (m *mockRateRepository) Save(
@@ -46,14 +48,27 @@ func (m *mockRateRepository) GetBySymbol(
 	return m.getBySymbolResult, m.getBySymbolErr
 }
 
+func (m *mockRateRepository) GetByCoinGeckoID(
+	ctx context.Context,
+	coinGeckoID string,
+) ([]domain.Rate, error) {
+	return m.getByCoinGeckoIDResult, m.getByCoinGeckoIDErr
+}
+
 type mockExchangeClient struct {
-	rates []domain.Rate
-	err   error
+	rates        []domain.Rate
+	err          error
+	requestedIDs []string
+	called       bool
 }
 
 func (m *mockExchangeClient) GetRates(
 	ctx context.Context,
+	coinGeckoIDs []string,
 ) ([]domain.Rate, error) {
+	m.called = true
+	m.requestedIDs = append([]string(nil), coinGeckoIDs...)
+
 	return m.rates, m.err
 }
 
@@ -62,31 +77,37 @@ func TestRateService_UpdateRates(t *testing.T) {
 
 	rates := []domain.Rate{
 		{
-			Symbol:    "BTC",
-			Price:     63470,
-			Change1H:  0.1,
-			DayLow:    63267,
-			DayHigh:   64329,
-			CreatedAt: now,
+			CoinGeckoID: "bitcoin",
+			Symbol:      "BTC",
+			Price:       63470,
+			Change1H:    0.1,
+			DayLow:      63267,
+			DayHigh:     64329,
+			CreatedAt:   now,
 		},
 		{
-			Symbol:    "ETH",
-			Price:     1883.48,
-			Change1H:  -0.3,
-			DayLow:    1876.31,
-			DayHigh:   1918.99,
-			CreatedAt: now,
+			CoinGeckoID: "ethereum",
+			Symbol:      "ETH",
+			Price:       1883.48,
+			Change1H:    -0.3,
+			DayLow:      1876.31,
+			DayHigh:     1918.99,
+			CreatedAt:   now,
 		},
 	}
 
 	repo := &mockRateRepository{}
+
 	client := &mockExchangeClient{
 		rates: rates,
 	}
 
-	service := NewRateService(repo, client)
+	rateService := NewRateService(
+		repo,
+		client,
+	)
 
-	err := service.UpdateRates(context.Background())
+	err := rateService.UpdateRates(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -98,19 +119,25 @@ func TestRateService_UpdateRates(t *testing.T) {
 		)
 	}
 
-	if repo.savedRates[0].Symbol != "BTC" {
+	if repo.savedRates[0].CoinGeckoID != "bitcoin" {
 		t.Errorf(
-			"expected first symbol BTC, got %s",
-			repo.savedRates[0].Symbol,
+			"expected first CoinGecko ID bitcoin, got %s",
+			repo.savedRates[0].CoinGeckoID,
 		)
 	}
 
-	if repo.savedRates[1].Symbol != "ETH" {
+	if repo.savedRates[1].CoinGeckoID != "ethereum" {
 		t.Errorf(
-			"expected second symbol ETH, got %s",
-			repo.savedRates[1].Symbol,
+			"expected second CoinGecko ID ethereum, got %s",
+			repo.savedRates[1].CoinGeckoID,
 		)
 	}
+
+	assertIDs(
+		t,
+		client.requestedIDs,
+		[]string{"bitcoin", "ethereum"},
+	)
 }
 
 func TestRateService_UpdateRates_ClientError(t *testing.T) {
@@ -122,9 +149,12 @@ func TestRateService_UpdateRates_ClientError(t *testing.T) {
 		err: expectedErr,
 	}
 
-	service := NewRateService(repo, client)
+	rateService := NewRateService(
+		repo,
+		client,
+	)
 
-	err := service.UpdateRates(context.Background())
+	err := rateService.UpdateRates(context.Background())
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf(
 			"expected error %v, got %v",
@@ -141,17 +171,20 @@ func TestRateService_UpdateRates_ClientError(t *testing.T) {
 	}
 }
 
-func TestRateService_UpdateRates_RepositoryError(t *testing.T) {
+func TestRateService_UpdateRates_RepositoryError(
+	t *testing.T,
+) {
 	expectedErr := errors.New("database error")
 
 	rates := []domain.Rate{
 		{
-			Symbol:    "BTC",
-			Price:     63470,
-			Change1H:  0.1,
-			DayLow:    63267,
-			DayHigh:   64329,
-			CreatedAt: time.Now(),
+			CoinGeckoID: "bitcoin",
+			Symbol:      "BTC",
+			Price:       63470,
+			Change1H:    0.1,
+			DayLow:      63267,
+			DayHigh:     64329,
+			CreatedAt:   time.Now(),
 		},
 	}
 
@@ -163,9 +196,12 @@ func TestRateService_UpdateRates_RepositoryError(t *testing.T) {
 		rates: rates,
 	}
 
-	service := NewRateService(repo, client)
+	rateService := NewRateService(
+		repo,
+		client,
+	)
 
-	err := service.UpdateRates(context.Background())
+	err := rateService.UpdateRates(context.Background())
 	if !errors.Is(err, expectedErr) {
 		t.Fatalf(
 			"expected error %v, got %v",
@@ -178,12 +214,14 @@ func TestRateService_UpdateRates_RepositoryError(t *testing.T) {
 func TestRateService_GetLatest(t *testing.T) {
 	expectedRates := []domain.Rate{
 		{
-			Symbol: "BTC",
-			Price:  63470,
+			CoinGeckoID: "bitcoin",
+			Symbol:      "BTC",
+			Price:       63470,
 		},
 		{
-			Symbol: "ETH",
-			Price:  1883.48,
+			CoinGeckoID: "ethereum",
+			Symbol:      "ETH",
+			Price:       1883.48,
 		},
 	}
 
@@ -191,11 +229,14 @@ func TestRateService_GetLatest(t *testing.T) {
 		getLatestResult: expectedRates,
 	}
 
-	client := &mockExchangeClient{}
+	rateService := NewRateService(
+		repo,
+		&mockExchangeClient{},
+	)
 
-	service := NewRateService(repo, client)
-
-	rates, err := service.GetLatest(context.Background())
+	rates, err := rateService.GetLatest(
+		context.Background(),
+	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -218,8 +259,9 @@ func TestRateService_GetLatest(t *testing.T) {
 func TestRateService_GetBySymbol(t *testing.T) {
 	expectedRates := []domain.Rate{
 		{
-			Symbol: "BTC",
-			Price:  63470,
+			CoinGeckoID: "bitcoin",
+			Symbol:      "BTC",
+			Price:       63470,
 		},
 	}
 
@@ -227,11 +269,12 @@ func TestRateService_GetBySymbol(t *testing.T) {
 		getBySymbolResult: expectedRates,
 	}
 
-	client := &mockExchangeClient{}
+	rateService := NewRateService(
+		repo,
+		&mockExchangeClient{},
+	)
 
-	service := NewRateService(repo, client)
-
-	rates, err := service.GetBySymbol(
+	rates, err := rateService.GetBySymbol(
 		context.Background(),
 		"BTC",
 	)
@@ -250,6 +293,309 @@ func TestRateService_GetBySymbol(t *testing.T) {
 		t.Errorf(
 			"expected BTC, got %s",
 			rates[0].Symbol,
+		)
+	}
+}
+
+func TestRateService_GetCurrentRate(t *testing.T) {
+	expectedRate := domain.Rate{
+		CoinGeckoID: "dogecoin",
+		Symbol:      "DOGE",
+		Price:       0.1,
+		Change1H:    0.5,
+		DayLow:      0.09,
+		DayHigh:     0.11,
+		CreatedAt:   time.Now(),
+	}
+
+	repo := &mockRateRepository{}
+
+	client := &mockExchangeClient{
+		rates: []domain.Rate{
+			expectedRate,
+		},
+	}
+
+	rateService := NewRateService(
+		repo,
+		client,
+	)
+
+	rate, err := rateService.GetCurrentRate(
+		context.Background(),
+		"dogecoin",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if rate == nil {
+		t.Fatal("expected rate, got nil")
+	}
+
+	if rate.CoinGeckoID != "dogecoin" {
+		t.Fatalf(
+			"expected CoinGecko ID dogecoin, got %s",
+			rate.CoinGeckoID,
+		)
+	}
+
+	assertIDs(
+		t,
+		client.requestedIDs,
+		[]string{"dogecoin"},
+	)
+
+	if len(repo.savedRates) != 1 {
+		t.Fatalf(
+			"expected 1 saved rate, got %d",
+			len(repo.savedRates),
+		)
+	}
+
+	if repo.savedRates[0].CoinGeckoID != "dogecoin" {
+		t.Fatalf(
+			"expected saved CoinGecko ID dogecoin, got %s",
+			repo.savedRates[0].CoinGeckoID,
+		)
+	}
+}
+
+func assertIDs(
+	t *testing.T,
+	actual []string,
+	expected []string,
+) {
+	t.Helper()
+
+	if len(actual) != len(expected) {
+		t.Fatalf(
+			"expected IDs %v, got %v",
+			expected,
+			actual,
+		)
+	}
+
+	for i := range expected {
+		if actual[i] != expected[i] {
+			t.Fatalf(
+				"expected IDs %v, got %v",
+				expected,
+				actual,
+			)
+		}
+	}
+}
+
+func TestRateService_GetByCoinGeckoID(t *testing.T) {
+	expectedRates := []domain.Rate{
+		{
+			CoinGeckoID: "solana",
+			Symbol:      "SOL",
+			Price:       150.25,
+		},
+	}
+
+	repo := &mockRateRepository{
+		getByCoinGeckoIDResult: expectedRates,
+	}
+
+	client := &mockExchangeClient{}
+
+	service := NewRateService(
+		repo,
+		client,
+	)
+
+	rates, err := service.GetByCoinGeckoID(
+		context.Background(),
+		"solana",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(rates) != 1 {
+		t.Fatalf(
+			"expected 1 rate, got %d",
+			len(rates),
+		)
+	}
+
+	if rates[0].CoinGeckoID != "solana" {
+		t.Errorf(
+			"expected CoinGeckoID solana, got %s",
+			rates[0].CoinGeckoID,
+		)
+	}
+
+	if rates[0].Symbol != "SOL" {
+		t.Errorf(
+			"expected symbol SOL, got %s",
+			rates[0].Symbol,
+		)
+	}
+}
+
+func TestRateService_GetCurrentRate_ClientError(t *testing.T) {
+	expectedErr := errors.New("coingecko unavailable")
+
+	repo := &mockRateRepository{}
+
+	client := &mockExchangeClient{
+		err: expectedErr,
+	}
+
+	rateService := NewRateService(
+		repo,
+		client,
+	)
+
+	rate, err := rateService.GetCurrentRate(
+		context.Background(),
+		"dogecoin",
+	)
+
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf(
+			"expected error %v, got %v",
+			expectedErr,
+			err,
+		)
+	}
+
+	if rate != nil {
+		t.Fatalf(
+			"expected nil rate, got %+v",
+			rate,
+		)
+	}
+
+	assertIDs(
+		t,
+		client.requestedIDs,
+		[]string{"dogecoin"},
+	)
+
+	if len(repo.savedRates) != 0 {
+		t.Fatalf(
+			"expected 0 saved rates, got %d",
+			len(repo.savedRates),
+		)
+	}
+}
+
+func TestRateService_GetCurrentRate_SaveError(t *testing.T) {
+	expectedErr := errors.New("database unavailable")
+
+	repo := &mockRateRepository{
+		saveErr: expectedErr,
+	}
+
+	client := &mockExchangeClient{
+		rates: []domain.Rate{
+			{
+				CoinGeckoID: "dogecoin",
+				Symbol:      "DOGE",
+				Price:       0.1,
+				Change1H:    0.5,
+				DayLow:      0.09,
+				DayHigh:     0.11,
+				CreatedAt:   time.Now(),
+			},
+		},
+	}
+
+	rateService := NewRateService(
+		repo,
+		client,
+	)
+
+	rate, err := rateService.GetCurrentRate(
+		context.Background(),
+		"dogecoin",
+	)
+
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf(
+			"expected error %v, got %v",
+			expectedErr,
+			err,
+		)
+	}
+
+	if rate != nil {
+		t.Fatalf(
+			"expected nil rate, got %+v",
+			rate,
+		)
+	}
+
+	assertIDs(
+		t,
+		client.requestedIDs,
+		[]string{"dogecoin"},
+	)
+}
+
+func TestRateService_GetLatest_ReturnsOnlyBaseCoins(t *testing.T) {
+	repo := &mockRateRepository{
+		getLatestResult: []domain.Rate{
+			{
+				CoinGeckoID: "bitcoin",
+				Symbol:      "BTC",
+				Price:       82879,
+			},
+			{
+				CoinGeckoID: "dogecoin",
+				Symbol:      "DOGE",
+				Price:       0.09,
+			},
+			{
+				CoinGeckoID: "ethereum",
+				Symbol:      "ETH",
+				Price:       2642.81,
+			},
+			{
+				CoinGeckoID: "solana",
+				Symbol:      "SOL",
+				Price:       116.59,
+			},
+		},
+	}
+
+	client := &mockExchangeClient{}
+
+	rateService := NewRateService(
+		repo,
+		client,
+	)
+
+	rates, err := rateService.GetLatest(
+		context.Background(),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(rates) != 2 {
+		t.Fatalf(
+			"expected 2 rates, got %d",
+			len(rates),
+		)
+	}
+
+	if rates[0].CoinGeckoID != "bitcoin" {
+		t.Errorf(
+			"expected bitcoin, got %s",
+			rates[0].CoinGeckoID,
+		)
+	}
+
+	if rates[1].CoinGeckoID != "ethereum" {
+		t.Errorf(
+			"expected ethereum, got %s",
+			rates[1].CoinGeckoID,
 		)
 	}
 }

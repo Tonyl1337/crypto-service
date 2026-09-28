@@ -13,10 +13,11 @@ type mockSubscriptionProvider struct {
 	subscriptions []domain.Subscription
 	getErr        error
 
-	markedChatID int64
-	markedAt     time.Time
-	markCalled   bool
-	markErr      error
+	markedChatID      int64
+	markedCoinGeckoID string
+	markedAt          time.Time
+	markCalled        bool
+	markErr           error
 }
 
 func (m *mockSubscriptionProvider) GetEnabled(
@@ -28,24 +29,30 @@ func (m *mockSubscriptionProvider) GetEnabled(
 func (m *mockSubscriptionProvider) MarkSent(
 	ctx context.Context,
 	chatID int64,
+	coinGeckoID string,
 	sentAt time.Time,
 ) error {
 	m.markCalled = true
 	m.markedChatID = chatID
+	m.markedCoinGeckoID = coinGeckoID
 	m.markedAt = sentAt
 
 	return m.markErr
 }
 
 type mockRateProvider struct {
-	rates []domain.Rate
-	err   error
+	rate                 *domain.Rate
+	err                  error
+	requestedCoinGeckoID string
 }
 
-func (m *mockRateProvider) GetLatest(
+func (m *mockRateProvider) GetCurrentRate(
 	ctx context.Context,
-) ([]domain.Rate, error) {
-	return m.rates, m.err
+	coinGeckoID string,
+) (*domain.Rate, error) {
+	m.requestedCoinGeckoID = coinGeckoID
+
+	return m.rate, m.err
 }
 
 type mockMessageSender struct {
@@ -75,6 +82,8 @@ func TestSubscriptionSender_Process_SendsMessageWhenDue(
 		subscriptions: []domain.Subscription{
 			{
 				ChatID:          123,
+				Symbol:          "BTC",
+				CoinGeckoID:     "bitcoin",
 				Enabled:         true,
 				IntervalMinutes: 1,
 				LastSentAt:      &lastSent,
@@ -83,14 +92,13 @@ func TestSubscriptionSender_Process_SendsMessageWhenDue(
 	}
 
 	rates := &mockRateProvider{
-		rates: []domain.Rate{
-			{
-				Symbol:   "BTC",
-				Price:    63000,
-				DayLow:   62000,
-				DayHigh:  64000,
-				Change1H: 0.5,
-			},
+		rate: &domain.Rate{
+			CoinGeckoID: "bitcoin",
+			Symbol:      "BTC",
+			Price:       63000,
+			DayLow:      62000,
+			DayHigh:     64000,
+			Change1H:    0.5,
 		},
 	}
 
@@ -118,6 +126,27 @@ func TestSubscriptionSender_Process_SendsMessageWhenDue(
 
 	if !subscriptions.markCalled {
 		t.Fatal("expected MarkSent to be called")
+	}
+
+	if rates.requestedCoinGeckoID != "bitcoin" {
+		t.Fatalf(
+			"expected bitcoin rate to be requested, got %s",
+			rates.requestedCoinGeckoID,
+		)
+	}
+
+	if subscriptions.markedChatID != 123 {
+		t.Fatalf(
+			"expected chat ID 123 to be marked, got %d",
+			subscriptions.markedChatID,
+		)
+	}
+
+	if subscriptions.markedCoinGeckoID != "bitcoin" {
+		t.Fatalf(
+			"expected bitcoin to be marked, got %s",
+			subscriptions.markedCoinGeckoID,
+		)
 	}
 }
 
@@ -171,16 +200,17 @@ func TestSubscriptionSender_Process_DoesNotMarkSentOnSendError(
 				Enabled:         true,
 				IntervalMinutes: 1,
 				LastSentAt:      &lastSent,
+				Symbol:          "BTC",
+				CoinGeckoID:     "bitcoin",
 			},
 		},
 	}
 
 	rates := &mockRateProvider{
-		rates: []domain.Rate{
-			{
-				Symbol: "BTC",
-				Price:  63000,
-			},
+		rate: &domain.Rate{
+			CoinGeckoID: "bitcoin",
+			Symbol:      "BTC",
+			Price:       63000,
 		},
 	}
 

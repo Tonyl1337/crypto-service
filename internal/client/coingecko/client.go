@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/Tonyl1337/crypto-service/internal/domain"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
+
+	"github.com/Tonyl1337/crypto-service/internal/domain"
 )
 
 const baseURL = "https://api.coingecko.com/api/v3"
@@ -25,18 +28,29 @@ func NewClient() *Client {
 
 func (c *Client) GetRates(
 	ctx context.Context,
+	coinGeckoIDs []string,
 ) ([]domain.Rate, error) {
 
-	url := baseURL +
-		"/coins/markets" +
-		"?vs_currency=usd" +
-		"&ids=bitcoin,ethereum" +
-		"&price_change_percentage=1h"
+	if len(coinGeckoIDs) == 0 {
+		return []domain.Rate{}, nil
+	}
+
+	endpoint, err := url.Parse(baseURL + "/coins/markets")
+	if err != nil {
+		return nil, err
+	}
+
+	query := endpoint.Query()
+	query.Set("vs_currency", "usd")
+	query.Set("ids", strings.Join(coinGeckoIDs, ","))
+	query.Set("price_change_percentage", "1h")
+
+	endpoint.RawQuery = query.Encode()
 
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
-		url,
+		endpoint.String(),
 		nil,
 	)
 	if err != nil {

@@ -21,15 +21,18 @@ func NewSubscriptionRepository(
 	}
 }
 
-func (r *SubscriptionRepository) GetByChatID(
+func (r *SubscriptionRepository) GetByChatIDAndCoin(
 	ctx context.Context,
 	chatID int64,
+	coinGeckoID string,
 ) (*domain.Subscription, error) {
 
 	const query = `
 		SELECT
 			id,
 			chat_id,
+			symbol,
+			coingecko_id,
 			enabled,
 			interval_minutes,
 			created_at,
@@ -37,6 +40,7 @@ func (r *SubscriptionRepository) GetByChatID(
 			last_sent_at
 		FROM telegram_subscriptions
 		WHERE chat_id = $1
+		  AND coingecko_id = $2
 	`
 
 	var subscription domain.Subscription
@@ -45,16 +49,18 @@ func (r *SubscriptionRepository) GetByChatID(
 		ctx,
 		query,
 		chatID,
+		coinGeckoID,
 	).Scan(
 		&subscription.ID,
 		&subscription.ChatID,
+		&subscription.Symbol,
+		&subscription.CoinGeckoID,
 		&subscription.Enabled,
 		&subscription.IntervalMinutes,
 		&subscription.CreatedAt,
 		&subscription.UpdatedAt,
 		&subscription.LastSentAt,
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -70,21 +76,27 @@ func (r *SubscriptionRepository) Save(
 	const query = `
 		INSERT INTO telegram_subscriptions (
 			chat_id,
+			symbol,
+			coingecko_id,
 			enabled,
 			interval_minutes
 		)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (chat_id)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (chat_id, coingecko_id)
 		DO UPDATE SET
+			symbol = EXCLUDED.symbol,
 			enabled = EXCLUDED.enabled,
 			interval_minutes = EXCLUDED.interval_minutes,
-			updated_at = NOW()
+			updated_at = NOW(),
+			last_sent_at = NULL
 	`
 
 	_, err := r.db.Exec(
 		ctx,
 		query,
 		subscription.ChatID,
+		subscription.Symbol,
+		subscription.CoinGeckoID,
 		subscription.Enabled,
 		subscription.IntervalMinutes,
 	)
@@ -93,6 +105,28 @@ func (r *SubscriptionRepository) Save(
 }
 
 func (r *SubscriptionRepository) Delete(
+	ctx context.Context,
+	chatID int64,
+	coinGeckoID string,
+) error {
+
+	const query = `
+		DELETE FROM telegram_subscriptions
+		WHERE chat_id = $1
+		  AND coingecko_id = $2
+	`
+
+	_, err := r.db.Exec(
+		ctx,
+		query,
+		chatID,
+		coinGeckoID,
+	)
+
+	return err
+}
+
+func (r *SubscriptionRepository) DeleteAll(
 	ctx context.Context,
 	chatID int64,
 ) error {
@@ -119,6 +153,8 @@ func (r *SubscriptionRepository) GetEnabled(
 		SELECT
 			id,
 			chat_id,
+			symbol,
+			coingecko_id,
 			enabled,
 			interval_minutes,
 			created_at,
@@ -126,7 +162,7 @@ func (r *SubscriptionRepository) GetEnabled(
 			last_sent_at
 		FROM telegram_subscriptions
 		WHERE enabled = TRUE
-		ORDER BY id;
+		ORDER BY id
 	`
 
 	rows, err := r.db.Query(ctx, query)
@@ -146,6 +182,8 @@ func (r *SubscriptionRepository) GetEnabled(
 		err := rows.Scan(
 			&subscription.ID,
 			&subscription.ChatID,
+			&subscription.Symbol,
+			&subscription.CoinGeckoID,
 			&subscription.Enabled,
 			&subscription.IntervalMinutes,
 			&subscription.CreatedAt,
@@ -169,22 +207,64 @@ func (r *SubscriptionRepository) GetEnabled(
 	return subscriptions, nil
 }
 
+func (r *SubscriptionRepository) GetEnabledCoinGeckoIDs(
+	ctx context.Context,
+) ([]string, error) {
+
+	const query = `
+		SELECT DISTINCT coingecko_id
+		FROM telegram_subscriptions
+		WHERE enabled = TRUE
+		ORDER BY coingecko_id
+	`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	coinGeckoIDs := make([]string, 0)
+
+	for rows.Next() {
+		var coinGeckoID string
+
+		if err := rows.Scan(&coinGeckoID); err != nil {
+			return nil, err
+		}
+
+		coinGeckoIDs = append(
+			coinGeckoIDs,
+			coinGeckoID,
+		)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return coinGeckoIDs, nil
+}
+
 func (r *SubscriptionRepository) MarkSent(
 	ctx context.Context,
 	chatID int64,
+	coinGeckoID string,
 	sentAt time.Time,
 ) error {
 
 	const query = `
 		UPDATE telegram_subscriptions
-		SET last_sent_at = $2
+		SET last_sent_at = $3
 		WHERE chat_id = $1
+		  AND coingecko_id = $2
 	`
 
 	_, err := r.db.Exec(
 		ctx,
 		query,
 		chatID,
+		coinGeckoID,
 		sentAt,
 	)
 

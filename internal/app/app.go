@@ -47,15 +47,15 @@ func New() (*App, error) {
 
 	subscriptionRepo := postgres.NewSubscriptionRepository(db)
 
+	subscriptionService := service.NewSubscriptionsService(
+		subscriptionRepo,
+	)
+
 	coinClient := coingecko.NewClient()
 
 	rateService := service.NewRateService(
 		rateRepo,
 		coinClient,
-	)
-
-	subscriptionService := service.NewSubscriptionsService(
-		subscriptionRepo,
 	)
 
 	telegramBot, err := telegram.NewBot(cfg.Telegram.Token)
@@ -67,6 +67,7 @@ func New() (*App, error) {
 		telegramBot,
 		rateService,
 		subscriptionService,
+		coinClient,
 	)
 
 	subscriptionSender := scheduler.NewSubscriptionSender(
@@ -76,7 +77,10 @@ func New() (*App, error) {
 		10*time.Second,
 	)
 
-	rateHandler := handler.NewRateHandler(rateService)
+	rateHandler := handler.NewRateHandler(
+		rateService,
+		coinClient,
+	)
 
 	httpAddress := fmt.Sprintf(
 		"%s:%s",
