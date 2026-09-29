@@ -10,6 +10,24 @@ servers:
     description: Local development server
 
 paths:
+  /health:
+    get:
+      summary: Check service health
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
   /rates:
     get:
       summary: Get latest cryptocurrency rates

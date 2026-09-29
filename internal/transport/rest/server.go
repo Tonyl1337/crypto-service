@@ -22,6 +22,22 @@ func NewServer(
 	mux := stdhttp.NewServeMux()
 
 	mux.HandleFunc(
+		"GET /health",
+		func(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+			w.Header().Set(
+				"Content-Type",
+				"application/json",
+			)
+
+			w.WriteHeader(stdhttp.StatusOK)
+
+			_, _ = w.Write(
+				[]byte(`{"status":"ok"}`),
+			)
+		},
+	)
+
+	mux.HandleFunc(
 		"GET /rates",
 		rateHandler.GetLatest,
 	)

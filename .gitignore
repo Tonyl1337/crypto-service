@@ -33,9 +33,3 @@ docs/swagger/
 
 # Build
 dist/
-
-# Test coverage
-coverage.out
-
-# Test coverage
-coverage.out
