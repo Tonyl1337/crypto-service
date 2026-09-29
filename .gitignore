@@ -20,7 +20,6 @@ coverage.out
 # Environment
 .env
 configs/config.yaml
-configs/config.docker.yaml
 
 # Logs
 *.log
