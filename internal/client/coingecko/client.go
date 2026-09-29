@@ -16,6 +16,7 @@ const baseURL = "https://api.coingecko.com/api/v3"
 
 type Client struct {
 	httpClient *http.Client
+	baseURL    string
 }
 
 func NewClient() *Client {
@@ -23,6 +24,7 @@ func NewClient() *Client {
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
+		baseURL: baseURL,
 	}
 }
 
@@ -35,15 +37,23 @@ func (c *Client) GetRates(
 		return []domain.Rate{}, nil
 	}
 
-	endpoint, err := url.Parse(baseURL + "/coins/markets")
+	endpoint, err := url.Parse(
+		c.baseURL + "/coins/markets",
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	query := endpoint.Query()
 	query.Set("vs_currency", "usd")
-	query.Set("ids", strings.Join(coinGeckoIDs, ","))
-	query.Set("price_change_percentage", "1h")
+	query.Set(
+		"ids",
+		strings.Join(coinGeckoIDs, ","),
+	)
+	query.Set(
+		"price_change_percentage",
+		"1h",
+	)
 
 	endpoint.RawQuery = query.Encode()
 
