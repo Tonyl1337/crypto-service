@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/Tonyl1337/crypto-service/internal/client/coingecko"
 	"github.com/Tonyl1337/crypto-service/internal/config"
 	"github.com/Tonyl1337/crypto-service/internal/database"
@@ -23,6 +25,7 @@ type App struct {
 	subscriptionSender *scheduler.SubscriptionSender
 	bot                *telegram.Bot
 	telegramHandler    *telegram.Handler
+	db                 *pgxpool.Pool
 }
 
 func New() (*App, error) {
@@ -104,10 +107,13 @@ func New() (*App, error) {
 		subscriptionSender: subscriptionSender,
 		bot:                telegramBot,
 		telegramHandler:    telegramHandler,
+		db:                 db,
 	}, nil
 }
 
 func (a *App) Run(ctx context.Context) error {
+	defer a.db.Close()
+
 	a.updater.Start(ctx)
 
 	a.subscriptionSender.Start(ctx)
