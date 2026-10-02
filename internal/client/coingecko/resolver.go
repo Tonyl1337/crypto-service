@@ -28,10 +28,11 @@ func (c *Client) ResolveCoin(
 		return nil, ErrCoinNotFound
 	}
 
-	endpoint, err := url.Parse(baseURL + "/search")
-	if err != nil {
-		return nil, err
+	if coin, ok := c.getCachedCoin(query); ok {
+		return coin, nil
 	}
+
+	endpoint, err := url.Parse(c.baseURL + "/search")
 
 	params := endpoint.Query()
 	params.Set("query", query)
@@ -66,7 +67,17 @@ func (c *Client) ResolveCoin(
 		return nil, err
 	}
 
-	return resolveSearchResult(query, result.Coins)
+	coin, err := resolveSearchResult(
+		query,
+		result.Coins,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	c.cacheCoin(query, coin)
+
+	return coin, nil
 }
 
 func resolveSearchResult(

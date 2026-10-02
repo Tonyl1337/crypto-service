@@ -2,7 +2,11 @@ package coingecko
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestResolveSearchResult_BySymbol(t *testing.T) {
@@ -148,6 +152,99 @@ func TestResolveSearchResult_IDWinsOverAmbiguousSymbol(
 		t.Fatalf(
 			"expected abc, got %s",
 			coin.ID,
+		)
+	}
+}
+
+func TestResolveCoin_UsesCache(t *testing.T) {
+	var requestCount int32
+
+	server := httptest.NewServer(
+		http.HandlerFunc(func(
+			w http.ResponseWriter,
+			r *http.Request,
+		) {
+			if r.URL.Path != "/search" {
+				t.Fatalf(
+					"expected /search, got %s",
+					r.URL.Path,
+				)
+			}
+
+			atomic.AddInt32(&requestCount, 1)
+
+			w.Header().Set(
+				"Content-Type",
+				"application/json",
+			)
+
+			_, err := w.Write([]byte(`{
+				"coins": [
+					{
+						"id": "avalanche-2",
+						"name": "Avalanche",
+						"symbol": "AVAX",
+						"market_cap_rank": 25
+					}
+				]
+			}`))
+			if err != nil {
+				t.Fatalf(
+					"write response: %v",
+					err,
+				)
+			}
+		}),
+	)
+	defer server.Close()
+
+	client := &Client{
+		httpClient: server.Client(),
+		baseURL:    server.URL,
+		coinCache:  make(map[string]cachedCoin),
+		cacheTTL:   time.Hour,
+	}
+
+	first, err := client.ResolveCoin(
+		t.Context(),
+		"AVAX",
+	)
+	if err != nil {
+		t.Fatalf(
+			"first ResolveCoin: %v",
+			err,
+		)
+	}
+
+	second, err := client.ResolveCoin(
+		t.Context(),
+		"AVAX",
+	)
+	if err != nil {
+		t.Fatalf(
+			"second ResolveCoin: %v",
+			err,
+		)
+	}
+
+	if first.ID != "avalanche-2" {
+		t.Fatalf(
+			"expected avalanche-2, got %s",
+			first.ID,
+		)
+	}
+
+	if second.ID != "avalanche-2" {
+		t.Fatalf(
+			"expected avalanche-2 from cache, got %s",
+			second.ID,
+		)
+	}
+
+	if got := atomic.LoadInt32(&requestCount); got != 1 {
+		t.Fatalf(
+			"expected 1 HTTP request, got %d",
+			got,
 		)
 	}
 }
