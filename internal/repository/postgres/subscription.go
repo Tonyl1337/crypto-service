@@ -68,6 +68,74 @@ func (r *SubscriptionRepository) GetByChatIDAndCoin(
 	return &subscription, nil
 }
 
+func (r *SubscriptionRepository) GetByChatID(
+	ctx context.Context,
+	chatID int64,
+) ([]domain.Subscription, error) {
+
+	const query = `
+		SELECT
+			id,
+			chat_id,
+			symbol,
+			coingecko_id,
+			enabled,
+			interval_minutes,
+			created_at,
+			updated_at,
+			last_sent_at
+		FROM telegram_subscriptions
+		WHERE chat_id = $1
+		  AND enabled = TRUE
+		ORDER BY symbol
+	`
+
+	rows, err := r.db.Query(
+		ctx,
+		query,
+		chatID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	subscriptions := make(
+		[]domain.Subscription,
+		0,
+	)
+
+	for rows.Next() {
+		var subscription domain.Subscription
+
+		err := rows.Scan(
+			&subscription.ID,
+			&subscription.ChatID,
+			&subscription.Symbol,
+			&subscription.CoinGeckoID,
+			&subscription.Enabled,
+			&subscription.IntervalMinutes,
+			&subscription.CreatedAt,
+			&subscription.UpdatedAt,
+			&subscription.LastSentAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		subscriptions = append(
+			subscriptions,
+			subscription,
+		)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return subscriptions, nil
+}
+
 func (r *SubscriptionRepository) Save(
 	ctx context.Context,
 	subscription *domain.Subscription,

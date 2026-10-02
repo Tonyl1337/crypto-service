@@ -41,6 +41,19 @@ func (b *Bot) SendMessage(
 	return err
 }
 
+func (b *Bot) SendMessageWithKeyboard(
+	chatID int64,
+	text string,
+	keyboard tgbotapi.ReplyKeyboardMarkup,
+) error {
+	message := tgbotapi.NewMessage(chatID, text)
+	message.ReplyMarkup = keyboard
+
+	_, err := b.bot.Send(message)
+
+	return err
+}
+
 func (b *Bot) String() string {
 	return fmt.Sprintf("Telegram bot as @%s", b.bot.Self.UserName)
 }

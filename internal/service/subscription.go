@@ -14,6 +14,11 @@ type SubscriptionRepository interface {
 		coinGeckoID string,
 	) (*domain.Subscription, error)
 
+	GetByChatID(
+		ctx context.Context,
+		chatID int64,
+	) ([]domain.Subscription, error)
+
 	GetEnabled(
 		ctx context.Context,
 	) ([]domain.Subscription, error)
@@ -67,6 +72,16 @@ func (s *SubscriptionService) GetByChatIDAndCoin(
 		ctx,
 		chatID,
 		coinGeckoID,
+	)
+}
+
+func (s *SubscriptionService) GetByChatID(
+	ctx context.Context,
+	chatID int64,
+) ([]domain.Subscription, error) {
+	return s.repo.GetByChatID(
+		ctx,
+		chatID,
 	)
 }
 

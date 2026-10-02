@@ -32,3 +32,6 @@ docs/swagger/
 
 # Build
 dist/
+
+# Local build binaries
+/server

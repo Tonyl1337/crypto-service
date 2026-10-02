@@ -24,6 +24,7 @@ type mockSubscriptionRepository struct {
 	sentAt          time.Time
 
 	getByChatIDAndCoinCalled     bool
+	getByChatIDCalled            bool
 	getEnabledCalled             bool
 	getEnabledCoinGeckoIDsCalled bool
 	saveCalled                   bool
@@ -42,6 +43,16 @@ func (m *mockSubscriptionRepository) GetByChatIDAndCoin(
 	m.coinGeckoID = coinGeckoID
 
 	return m.subscription, m.err
+}
+
+func (m *mockSubscriptionRepository) GetByChatID(
+	ctx context.Context,
+	chatID int64,
+) ([]domain.Subscription, error) {
+	m.getByChatIDCalled = true
+	m.chatID = chatID
+
+	return m.subscriptions, m.err
 }
 
 func (m *mockSubscriptionRepository) GetEnabled(
@@ -130,6 +141,41 @@ func TestSubscriptionService_GetByChatIDAndCoin(t *testing.T) {
 	require.True(t, repo.getByChatIDAndCoinCalled)
 	require.Equal(t, int64(123), repo.chatID)
 	require.Equal(t, "bitcoin", repo.coinGeckoID)
+	require.Equal(t, expected, actual)
+}
+
+func TestSubscriptionService_GetByChatID(t *testing.T) {
+	expected := []domain.Subscription{
+		{
+			ChatID:          123,
+			CoinGeckoID:     "bitcoin",
+			Symbol:          "BTC",
+			Enabled:         true,
+			IntervalMinutes: 5,
+		},
+		{
+			ChatID:          123,
+			CoinGeckoID:     "solana",
+			Symbol:          "SOL",
+			Enabled:         true,
+			IntervalMinutes: 30,
+		},
+	}
+
+	repo := &mockSubscriptionRepository{
+		subscriptions: expected,
+	}
+
+	service := NewSubscriptionsService(repo)
+
+	actual, err := service.GetByChatID(
+		context.Background(),
+		123,
+	)
+
+	require.NoError(t, err)
+	require.True(t, repo.getByChatIDCalled)
+	require.Equal(t, int64(123), repo.chatID)
 	require.Equal(t, expected, actual)
 }
 
