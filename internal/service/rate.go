@@ -57,10 +57,38 @@ const currentRateCacheTTL = time.Minute
 func (s *RateService) UpdateRates(
 	ctx context.Context,
 ) error {
+	storedRates, err := s.repo.GetLatest(ctx)
+	if err != nil {
+		return err
+	}
+
+	freshIDs := make(map[string]bool)
+
+	for _, rate := range storedRates {
+		if !isBaseCoinGeckoID(rate.CoinGeckoID) {
+			continue
+		}
+
+		if time.Since(rate.CreatedAt) < currentRateCacheTTL {
+			freshIDs[rate.CoinGeckoID] = true
+		}
+	}
+
+	var idsToUpdate []string
+
+	for _, id := range baseCoinGeckoIDs {
+		if !freshIDs[id] {
+			idsToUpdate = append(idsToUpdate, id)
+		}
+	}
+
+	if len(idsToUpdate) == 0 {
+		return nil
+	}
 
 	rates, err := s.client.GetRates(
 		ctx,
-		baseCoinGeckoIDs,
+		idsToUpdate,
 	)
 	if err != nil {
 		return err
@@ -79,8 +107,6 @@ func (s *RateService) GetCurrentRate(
 	ctx context.Context,
 	coinGeckoID string,
 ) (*domain.Rate, error) {
-
-	// Сначала пытаемся использовать свежий курс из БД.
 	storedRates, err := s.repo.GetByCoinGeckoID(
 		ctx,
 		coinGeckoID,
@@ -89,24 +115,37 @@ func (s *RateService) GetCurrentRate(
 		return nil, err
 	}
 
+	var cachedRate *domain.Rate
+
 	if len(storedRates) > 0 {
 		latest := storedRates[0]
+		cachedRate = &latest
 
 		if time.Since(latest.CreatedAt) < currentRateCacheTTL {
 			return &latest, nil
 		}
 	}
 
-	// Свежего курса нет — обращаемся к CoinGecko.
 	rates, err := s.client.GetRates(
 		ctx,
 		[]string{coinGeckoID},
 	)
 	if err != nil {
+		// CoinGecko временно недоступен или вернул 429.
+		// Лучше вернуть последний известный курс,
+		// чем полностью отказать пользователю.
+		if cachedRate != nil {
+			return cachedRate, nil
+		}
+
 		return nil, err
 	}
 
 	if len(rates) == 0 {
+		if cachedRate != nil {
+			return cachedRate, nil
+		}
+
 		return nil, nil
 	}
 

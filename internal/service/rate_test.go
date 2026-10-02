@@ -599,3 +599,130 @@ func TestRateService_GetLatest_ReturnsOnlyBaseCoins(t *testing.T) {
 		)
 	}
 }
+
+func TestRateService_UpdateRates_UsesFreshCache(t *testing.T) {
+	repo := &mockRateRepository{
+		getLatestResult: []domain.Rate{
+			{
+				CoinGeckoID: "bitcoin",
+				Symbol:      "BTC",
+				CreatedAt:   time.Now(),
+			},
+			{
+				CoinGeckoID: "ethereum",
+				Symbol:      "ETH",
+				CreatedAt:   time.Now(),
+			},
+		},
+	}
+
+	client := &mockExchangeClient{}
+
+	rateService := NewRateService(
+		repo,
+		client,
+	)
+
+	err := rateService.UpdateRates(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if client.called {
+		t.Fatal("expected CoinGecko not to be called")
+	}
+}
+
+func TestRateService_UpdateRates_UpdatesOnlyStaleCoins(t *testing.T) {
+	repo := &mockRateRepository{
+		getLatestResult: []domain.Rate{
+			{
+				CoinGeckoID: "bitcoin",
+				Symbol:      "BTC",
+				CreatedAt:   time.Now(),
+			},
+			{
+				CoinGeckoID: "ethereum",
+				Symbol:      "ETH",
+				CreatedAt:   time.Now().Add(-10 * time.Minute),
+			},
+		},
+	}
+
+	client := &mockExchangeClient{
+		rates: []domain.Rate{
+			{
+				CoinGeckoID: "ethereum",
+				Symbol:      "ETH",
+				Price:       2700,
+				CreatedAt:   time.Now(),
+			},
+		},
+	}
+
+	rateService := NewRateService(
+		repo,
+		client,
+	)
+
+	err := rateService.UpdateRates(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertIDs(
+		t,
+		client.requestedIDs,
+		[]string{"ethereum"},
+	)
+}
+
+func TestRateService_GetCurrentRate_FallsBackToCachedRate(
+	t *testing.T,
+) {
+	cachedRate := domain.Rate{
+		CoinGeckoID: "dogecoin",
+		Symbol:      "DOGE",
+		Price:       0.10,
+		CreatedAt:   time.Now().Add(-10 * time.Minute),
+	}
+
+	repo := &mockRateRepository{
+		getByCoinGeckoIDResult: []domain.Rate{
+			cachedRate,
+		},
+	}
+
+	client := &mockExchangeClient{
+		err: errors.New("unexpected status: 429"),
+	}
+
+	rateService := NewRateService(
+		repo,
+		client,
+	)
+
+	rate, err := rateService.GetCurrentRate(
+		context.Background(),
+		"dogecoin",
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if rate == nil {
+		t.Fatal("expected cached rate, got nil")
+	}
+
+	if rate.Price != cachedRate.Price {
+		t.Fatalf(
+			"expected cached price %.2f, got %.2f",
+			cachedRate.Price,
+			rate.Price,
+		)
+	}
+
+	if !client.called {
+		t.Fatal("expected CoinGecko to be attempted")
+	}
+}
