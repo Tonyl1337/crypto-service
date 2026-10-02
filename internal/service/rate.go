@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/Tonyl1337/crypto-service/internal/domain"
 )
@@ -51,6 +52,8 @@ var baseCoinGeckoIDs = []string{
 	"ethereum",
 }
 
+const currentRateCacheTTL = time.Minute
+
 func (s *RateService) UpdateRates(
 	ctx context.Context,
 ) error {
@@ -77,6 +80,24 @@ func (s *RateService) GetCurrentRate(
 	coinGeckoID string,
 ) (*domain.Rate, error) {
 
+	// Сначала пытаемся использовать свежий курс из БД.
+	storedRates, err := s.repo.GetByCoinGeckoID(
+		ctx,
+		coinGeckoID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(storedRates) > 0 {
+		latest := storedRates[0]
+
+		if time.Since(latest.CreatedAt) < currentRateCacheTTL {
+			return &latest, nil
+		}
+	}
+
+	// Свежего курса нет — обращаемся к CoinGecko.
 	rates, err := s.client.GetRates(
 		ctx,
 		[]string{coinGeckoID},
@@ -118,7 +139,11 @@ func (s *RateService) GetLatest(
 		return nil, err
 	}
 
-	result := make([]domain.Rate, 0, len(baseCoinGeckoIDs))
+	result := make(
+		[]domain.Rate,
+		0,
+		len(baseCoinGeckoIDs),
+	)
 
 	for _, rate := range rates {
 		if isBaseCoinGeckoID(rate.CoinGeckoID) {
