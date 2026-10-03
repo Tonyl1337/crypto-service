@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -86,9 +87,22 @@ func (c *Client) GetRates(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		body, readErr := io.ReadAll(
+			io.LimitReader(resp.Body, 4096),
+		)
+		if readErr != nil {
+			return nil, fmt.Errorf(
+				"CoinGecko unexpected status %d; failed to read response body: %w",
+				resp.StatusCode,
+				readErr,
+			)
+		}
+
 		return nil, fmt.Errorf(
-			"unexpected status: %d",
+			"CoinGecko unexpected status %d: body=%q retry-after=%q",
 			resp.StatusCode,
+			strings.TrimSpace(string(body)),
+			resp.Header.Get("Retry-After"),
 		)
 	}
 
