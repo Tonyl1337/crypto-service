@@ -2135,3 +2135,46 @@ func TestHandler_DeleteAllSubscriptions_Error(t *testing.T) {
 		"Не удалось удалить подписки",
 	)
 }
+
+func TestHandler_Help(t *testing.T) {
+	bot := &mockBot{}
+	rates := &mockRateService{}
+	subscriptions := &mockSubscriptionService{}
+	resolver := &mockCoinResolver{}
+
+	handler := newTestHandler(
+		bot,
+		rates,
+		subscriptions,
+		resolver,
+	)
+
+	handler.Handle(
+		context.Background(),
+		makeUpdate(123, "ℹ️ Помощь"),
+	)
+
+	require.Contains(
+		t,
+		bot.text,
+		"Помощь",
+	)
+
+	require.Contains(
+		t,
+		bot.text,
+		"/rates",
+	)
+
+	require.Contains(
+		t,
+		bot.text,
+		"/start_auto",
+	)
+
+	require.Contains(
+		t,
+		bot.text,
+		"/stop_auto",
+	)
+}

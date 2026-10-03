@@ -173,6 +173,9 @@ func (h *Handler) Handle(
 		strings.HasPrefix(text, "/stop-auto "):
 		h.handleStopAuto(ctx, chatID, text)
 
+	case text == "ℹ️ Помощь":
+		h.handleHelp(chatID)
+
 	case text == "💰 Курсы":
 		h.handleRatesMenu(chatID)
 
@@ -666,6 +669,31 @@ func (h *Handler) handleDeleteAllSubscriptions(
 	if err != nil {
 		log.Printf(
 			"failed to send delete all confirmation: %v",
+			err,
+		)
+	}
+}
+
+func (h *Handler) handleHelp(chatID int64) {
+	err := h.bot.SendMessageWithKeyboard(
+		chatID,
+		"ℹ️ Помощь\n\n"+
+			"💰 Курсы — посмотреть текущий курс криптовалюты.\n"+
+			"🔎 Другая монета — найти монету по тикеру или CoinGecko ID.\n"+
+			"🔔 Подписаться — получать курс автоматически через выбранный интервал.\n"+
+			"📋 Подписки — посмотреть и удалить активные подписки.\n\n"+
+			"Команды:\n"+
+			"/start — главное меню\n"+
+			"/rates — текущие курсы BTC и ETH\n"+
+			"/rates BTC — курс конкретной монеты\n"+
+			"/start_auto SOL 5 — подписка на SOL каждые 5 минут\n"+
+			"/stop_auto SOL — удалить подписку на SOL\n"+
+			"/stop_auto — удалить все подписки",
+		mainKeyboard(),
+	)
+	if err != nil {
+		log.Printf(
+			"failed to send Telegram help: %v",
 			err,
 		)
 	}
