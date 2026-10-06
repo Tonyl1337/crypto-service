@@ -3,8 +3,6 @@ package coingecko
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -28,6 +26,9 @@ type Client struct {
 	cacheMu   sync.RWMutex
 	coinCache map[string]cachedCoin
 	cacheTTL  time.Duration
+
+	cooldownMu    sync.RWMutex
+	cooldownUntil time.Time
 }
 
 func NewClient() *Client {
@@ -41,6 +42,55 @@ func NewClient() *Client {
 	}
 }
 
+func (c *Client) cooldownRemaining() time.Duration {
+	c.cooldownMu.RLock()
+	until := c.cooldownUntil
+	c.cooldownMu.RUnlock()
+
+	remaining := time.Until(until)
+	if remaining <= 0 {
+		return 0
+	}
+
+	return remaining
+}
+
+func (c *Client) setCooldown(duration time.Duration) {
+	if duration <= 0 {
+		return
+	}
+
+	until := time.Now().Add(duration)
+
+	c.cooldownMu.Lock()
+	defer c.cooldownMu.Unlock()
+
+	if until.After(c.cooldownUntil) {
+		c.cooldownUntil = until
+	}
+}
+
+func (c *Client) handleAPIError(resp *http.Response) error {
+	err := newAPIError(resp)
+
+	apiErr, ok := err.(*APIError)
+	if !ok {
+		return err
+	}
+
+	if apiErr.StatusCode == http.StatusTooManyRequests {
+		retryAfter := apiErr.RetryAfter
+
+		if retryAfter <= 0 {
+			retryAfter = time.Minute
+		}
+
+		c.setCooldown(retryAfter)
+	}
+
+	return apiErr
+}
+
 func (c *Client) GetRates(
 	ctx context.Context,
 	coinGeckoIDs []string,
@@ -48,6 +98,14 @@ func (c *Client) GetRates(
 
 	if len(coinGeckoIDs) == 0 {
 		return []domain.Rate{}, nil
+	}
+
+	if remaining := c.cooldownRemaining(); remaining > 0 {
+		return nil, &APIError{
+			StatusCode: http.StatusTooManyRequests,
+			Body:       "CoinGecko request skipped during cooldown",
+			RetryAfter: remaining,
+		}
 	}
 
 	endpoint, err := url.Parse(
@@ -87,23 +145,7 @@ func (c *Client) GetRates(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, readErr := io.ReadAll(
-			io.LimitReader(resp.Body, 4096),
-		)
-		if readErr != nil {
-			return nil, fmt.Errorf(
-				"CoinGecko unexpected status %d; failed to read response body: %w",
-				resp.StatusCode,
-				readErr,
-			)
-		}
-
-		return nil, fmt.Errorf(
-			"CoinGecko unexpected status %d: body=%q retry-after=%q",
-			resp.StatusCode,
-			strings.TrimSpace(string(body)),
-			resp.Header.Get("Retry-After"),
-		)
+		return nil, c.handleAPIError(resp)
 	}
 
 	var result MarketResponse

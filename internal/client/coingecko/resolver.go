@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -32,6 +31,14 @@ func (c *Client) ResolveCoin(
 		return coin, nil
 	}
 
+	if remaining := c.cooldownRemaining(); remaining > 0 {
+		return nil, &APIError{
+			StatusCode: http.StatusTooManyRequests,
+			Body:       "CoinGecko request skipped during cooldown",
+			RetryAfter: remaining,
+		}
+	}
+
 	endpoint, err := url.Parse(c.baseURL + "/search")
 
 	params := endpoint.Query()
@@ -55,10 +62,7 @@ func (c *Client) ResolveCoin(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf(
-			"unexpected status: %d",
-			resp.StatusCode,
-		)
+		return nil, c.handleAPIError(resp)
 	}
 
 	var result SearchResponse
